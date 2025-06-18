@@ -1,0 +1,781 @@
+// 样式变量文件
+// 定义项目的设计系统
+
+// ==================== 颜色系统 ====================
+
+// 主色调
+:root {
+  // 品牌色
+  --color-primary: #409eff;
+  --color-primary-light-1: #53a8ff;
+  --color-primary-light-2: #66b1ff;
+  --color-primary-light-3: #79bbff;
+  --color-primary-light-4: #8cc5ff;
+  --color-primary-light-5: #a0cfff;
+  --color-primary-light-6: #b3d8ff;
+  --color-primary-light-7: #c6e2ff;
+  --color-primary-light-8: #d9ecff;
+  --color-primary-light-9: #ecf5ff;
+  --color-primary-dark-1: #3a8ee6;
+  --color-primary-dark-2: #337ecc;
+  
+  // 功能色
+  --color-success: #67c23a;
+  --color-success-light-1: #75c947;
+  --color-success-light-2: #82d054;
+  --color-success-light-3: #90d661;
+  --color-success-light-4: #9ddd6e;
+  --color-success-light-5: #abe47b;
+  --color-success-light-6: #b8ea88;
+  --color-success-light-7: #c6f195;
+  --color-success-light-8: #d3f7a2;
+  --color-success-light-9: #e1feaf;
+  --color-success-dark-1: #5daf34;
+  --color-success-dark-2: #529b2e;
+  
+  --color-warning: #e6a23c;
+  --color-warning-light-1: #e9ad4a;
+  --color-warning-light-2: #ecb858;
+  --color-warning-light-3: #efc366;
+  --color-warning-light-4: #f2ce74;
+  --color-warning-light-5: #f5d982;
+  --color-warning-light-6: #f8e490;
+  --color-warning-light-7: #fbef9e;
+  --color-warning-light-8: #fefaac;
+  --color-warning-light-9: #fdf6ba;
+  --color-warning-dark-1: #cf9236;
+  --color-warning-dark-2: #b88230;
+  
+  --color-danger: #f56c6c;
+  --color-danger-light-1: #f67979;
+  --color-danger-light-2: #f78686;
+  --color-danger-light-3: #f89393;
+  --color-danger-light-4: #f9a0a0;
+  --color-danger-light-5: #faadad;
+  --color-danger-light-6: #fbbaba;
+  --color-danger-light-7: #fcc7c7;
+  --color-danger-light-8: #fdd4d4;
+  --color-danger-light-9: #fee1e1;
+  --color-danger-dark-1: #dd6161;
+  --color-danger-dark-2: #c45656;
+  
+  --color-info: #909399;
+  --color-info-light-1: #9ca0a5;
+  --color-info-light-2: #a8acb1;
+  --color-info-light-3: #b4b9bd;
+  --color-info-light-4: #c0c5c9;
+  --color-info-light-5: #ccd2d5;
+  --color-info-light-6: #d8dee1;
+  --color-info-light-7: #e4eaed;
+  --color-info-light-8: #f0f7f9;
+  --color-info-light-9: #fcfdff;
+  --color-info-dark-1: #82848a;
+  --color-info-dark-2: #74767b;
+  
+  // 中性色
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-transparent: transparent;
+  
+  // 文本色
+  --text-color-primary: #303133;
+  --text-color-regular: #606266;
+  --text-color-secondary: #909399;
+  --text-color-placeholder: #a8abb2;
+  --text-color-disabled: #c0c4cc;
+  
+  // 边框色
+  --border-color-base: #dcdfe6;
+  --border-color-light: #e4e7ed;
+  --border-color-lighter: #ebeef5;
+  --border-color-extra-light: #f2f6fc;
+  --border-color-dark: #d4d7de;
+  --border-color-darker: #cdd0d6;
+  
+  // 填充色
+  --fill-color-blank: #ffffff;
+  --fill-color-light: #f5f7fa;
+  --fill-color-lighter: #fafafa;
+  --fill-color-extra-light: #fafcff;
+  --fill-color-dark: #ebedf0;
+  --fill-color-darker: #e6e8eb;
+  
+  // 背景色
+  --bg-color-page: #f2f3f5;
+  --bg-color-base: #f5f7fa;
+  --bg-color-overlay: #ffffff;
+  --bg-color-mask: rgba(0, 0, 0, 0.8);
+  --bg-color-hover: #f5f7fa;
+  --bg-color-active: #e6f7ff;
+  --bg-color-selected: #e6f7ff;
+  --bg-color-disabled: #f5f7fa;
+  
+  // 阴影色
+  --shadow-color-base: rgba(0, 0, 0, 0.12);
+  --shadow-color-light: rgba(0, 0, 0, 0.08);
+  --shadow-color-lighter: rgba(0, 0, 0, 0.04);
+  --shadow-color-dark: rgba(0, 0, 0, 0.16);
+}
+
+// 暗色主题
+[data-theme='dark'] {
+  // 品牌色（暗色主题下稍微调亮）
+  --color-primary: #529eff;
+  --color-primary-light-1: #66b1ff;
+  --color-primary-light-2: #79bbff;
+  --color-primary-light-3: #8cc5ff;
+  --color-primary-light-4: #a0cfff;
+  --color-primary-light-5: #b3d8ff;
+  --color-primary-light-6: #c6e2ff;
+  --color-primary-light-7: #d9ecff;
+  --color-primary-light-8: #ecf5ff;
+  --color-primary-light-9: #f0f9ff;
+  --color-primary-dark-1: #409eff;
+  --color-primary-dark-2: #337ecc;
+  
+  // 功能色
+  --color-success: #7bc23a;
+  --color-warning: #e6a23c;
+  --color-danger: #f56c6c;
+  --color-info: #909399;
+  
+  // 文本色
+  --text-color-primary: #e5eaf3;
+  --text-color-regular: #cfd3dc;
+  --text-color-secondary: #a3a6ad;
+  --text-color-placeholder: #8d9095;
+  --text-color-disabled: #6c6e72;
+  
+  // 边框色
+  --border-color-base: #4c4d4f;
+  --border-color-light: #414243;
+  --border-color-lighter: #363637;
+  --border-color-extra-light: #2b2b2c;
+  --border-color-dark: #58585b;
+  --border-color-darker: #636466;
+  
+  // 填充色
+  --fill-color-blank: #1d1e1f;
+  --fill-color-light: #262727;
+  --fill-color-lighter: #2b2c2d;
+  --fill-color-extra-light: #2f3031;
+  --fill-color-dark: #212223;
+  --fill-color-darker: #1c1d1e;
+  
+  // 背景色
+  --bg-color-page: #0a0a0a;
+  --bg-color-base: #141414;
+  --bg-color-overlay: #1d1e1f;
+  --bg-color-mask: rgba(0, 0, 0, 0.8);
+  --bg-color-hover: #262727;
+  --bg-color-active: #0d2a3d;
+  --bg-color-selected: #0d2a3d;
+  --bg-color-disabled: #262727;
+  
+  // 阴影色
+  --shadow-color-base: rgba(0, 0, 0, 0.72);
+  --shadow-color-light: rgba(0, 0, 0, 0.54);
+  --shadow-color-lighter: rgba(0, 0, 0, 0.36);
+  --shadow-color-dark: rgba(0, 0, 0, 0.90);
+}
+
+// ==================== 字体系统 ====================
+
+:root {
+  // 字体族
+  --font-family-base: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  --font-family-serif: Georgia, 'Times New Roman', Times, serif;
+  
+  // 字体大小
+  --font-size-extra-small: 10px;
+  --font-size-small: 12px;
+  --font-size-base: 14px;
+  --font-size-medium: 16px;
+  --font-size-large: 18px;
+  --font-size-extra-large: 20px;
+  --font-size-huge: 24px;
+  --font-size-massive: 32px;
+  
+  // 行高
+  --line-height-base: 1.5;
+  --line-height-small: 1.2;
+  --line-height-large: 1.8;
+  
+  // 字重
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+// ==================== 间距系统 ====================
+
+:root {
+  // 基础间距
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  
+  // 组件间距
+  --component-padding-xs: 4px 8px;
+  --component-padding-sm: 8px 12px;
+  --component-padding-md: 12px 16px;
+  --component-padding-lg: 16px 24px;
+  --component-padding-xl: 20px 32px;
+  
+  // 页面间距
+  --page-padding: 24px;
+  --page-margin: 16px;
+  --section-spacing: 32px;
+  --content-max-width: 1200px;
+}
+
+// ==================== 圆角系统 ====================
+
+:root {
+  --border-radius-none: 0;
+  --border-radius-small: 2px;
+  --border-radius-base: 4px;
+  --border-radius-medium: 6px;
+  --border-radius-large: 8px;
+  --border-radius-extra-large: 12px;
+  --border-radius-huge: 16px;
+  --border-radius-round: 50%;
+  --border-radius-circle: 50%;
+}
+
+// ==================== 边框系统 ====================
+
+:root {
+  --border-width-base: 1px;
+  --border-width-medium: 2px;
+  --border-width-thick: 3px;
+  --border-width-thicker: 4px;
+  
+  --border-style-base: solid;
+  --border-style-dashed: dashed;
+  --border-style-dotted: dotted;
+  
+  --border-base: var(--border-width-base) var(--border-style-base) var(--border-color-base);
+  --border-light: var(--border-width-base) var(--border-style-base) var(--border-color-light);
+  --border-lighter: var(--border-width-base) var(--border-style-base) var(--border-color-lighter);
+  --border-dark: var(--border-width-base) var(--border-style-base) var(--border-color-dark);
+}
+
+// ==================== 阴影系统 ====================
+
+:root {
+  --box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+  --box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  --box-shadow-lighter: 0 2px 8px 0 rgba(0, 0, 0, 0.06);
+  --box-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --box-shadow-darker: 0 8px 24px rgba(0, 0, 0, 0.2);
+  
+  // 特殊阴影
+  --box-shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  --box-shadow-outline: 0 0 0 2px var(--color-primary);
+  --box-shadow-focus: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  --box-shadow-error: 0 0 0 2px rgba(245, 108, 108, 0.2);
+  --box-shadow-success: 0 0 0 2px rgba(103, 194, 58, 0.2);
+  --box-shadow-warning: 0 0 0 2px rgba(230, 162, 60, 0.2);
+}
+
+// ==================== 动画系统 ====================
+
+:root {
+  // 动画时长
+  --transition-duration-fast: 0.15s;
+  --transition-duration-base: 0.3s;
+  --transition-duration-slow: 0.5s;
+  --transition-duration-slower: 0.8s;
+  
+  // 动画函数
+  --transition-function-ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --transition-function-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-function-ease-in: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+  --transition-function-ease-in-out-back: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  // 常用动画
+  --transition-all: all var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-fade: opacity var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-border: border-color var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-box-shadow: box-shadow var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-color: color var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-background: background-color var(--transition-duration-base) var(--transition-function-ease-in-out);
+  --transition-transform: transform var(--transition-duration-base) var(--transition-function-ease-in-out);
+}
+
+// ==================== Z-index 系统 ====================
+
+:root {
+  --z-index-normal: 1;
+  --z-index-top: 1000;
+  --z-index-popper: 2000;
+  --z-index-tooltip: 3000;
+  --z-index-loading: 4000;
+  --z-index-message: 5000;
+  --z-index-notification: 6000;
+  --z-index-drawer: 7000;
+  --z-index-modal: 8000;
+  --z-index-popover: 9000;
+  --z-index-dropdown: 10000;
+}
+
+// ==================== 组件尺寸系统 ====================
+
+:root {
+  // 按钮尺寸
+  --button-height-large: 40px;
+  --button-height-default: 32px;
+  --button-height-small: 28px;
+  --button-height-mini: 24px;
+  
+  --button-padding-large: 12px 19px;
+  --button-padding-default: 8px 15px;
+  --button-padding-small: 5px 11px;
+  --button-padding-mini: 1px 7px;
+  
+  // 输入框尺寸
+  --input-height-large: 40px;
+  --input-height-default: 32px;
+  --input-height-small: 28px;
+  --input-height-mini: 24px;
+  
+  // 表格尺寸
+  --table-row-height-large: 60px;
+  --table-row-height-default: 48px;
+  --table-row-height-small: 40px;
+  --table-row-height-mini: 32px;
+  
+  // 头部高度
+  --header-height: 60px;
+  --header-height-small: 50px;
+  
+  // 侧边栏宽度
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
+  
+  // 标签页高度
+  --tabs-height: 40px;
+  --tabs-height-small: 32px;
+  
+  // 面包屑高度
+  --breadcrumb-height: 32px;
+}
+
+// ==================== 响应式断点 ====================
+
+:root {
+  --breakpoint-xs: 480px;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-2xl: 1600px;
+}
+
+// ==================== 网格系统 ====================
+
+:root {
+  --grid-columns: 24;
+  --grid-gutter: 16px;
+  --grid-gutter-sm: 8px;
+  --grid-gutter-lg: 24px;
+  --grid-gutter-xl: 32px;
+}
+
+// ==================== 滚动条样式 ====================
+
+:root {
+  --scrollbar-width: 8px;
+  --scrollbar-height: 8px;
+  --scrollbar-thumb-color: var(--border-color-base);
+  --scrollbar-track-color: var(--border-color-lighter);
+  --scrollbar-thumb-hover-color: var(--border-color-dark);
+  --scrollbar-border-radius: 4px;
+}
+
+// ==================== 表单系统 ====================
+
+:root {
+  // 表单项间距
+  --form-item-margin-bottom: 18px;
+  --form-item-margin-bottom-small: 12px;
+  --form-item-margin-bottom-large: 24px;
+  
+  // 标签宽度
+  --form-label-width: 80px;
+  --form-label-width-small: 60px;
+  --form-label-width-large: 100px;
+  
+  // 验证状态
+  --form-error-color: var(--color-danger);
+  --form-success-color: var(--color-success);
+  --form-warning-color: var(--color-warning);
+}
+
+// ==================== 图标系统 ====================
+
+:root {
+  --icon-size-small: 12px;
+  --icon-size-base: 14px;
+  --icon-size-medium: 16px;
+  --icon-size-large: 18px;
+  --icon-size-extra-large: 20px;
+  --icon-size-huge: 24px;
+}
+
+// ==================== 加载动画 ====================
+
+:root {
+  --loading-spinner-size-small: 14px;
+  --loading-spinner-size-base: 20px;
+  --loading-spinner-size-large: 32px;
+  --loading-spinner-color: var(--color-primary);
+}
+
+// ==================== 消息提示 ====================
+
+:root {
+  --message-padding: 15px 20px;
+  --message-border-radius: var(--border-radius-base);
+  --message-font-size: var(--font-size-base);
+  --message-line-height: var(--line-height-base);
+  --message-close-size: 16px;
+  --message-close-hover-color: var(--text-color-secondary);
+}
+
+// ==================== 对话框系统 ====================
+
+:root {
+  --dialog-border-radius: var(--border-radius-large);
+  --dialog-box-shadow: var(--box-shadow-dark);
+  --dialog-padding: 20px;
+  --dialog-header-padding: 20px 20px 10px;
+  --dialog-body-padding: 10px 20px;
+  --dialog-footer-padding: 10px 20px 20px;
+}
+
+// ==================== 抽屉系统 ====================
+
+:root {
+  --drawer-padding: 20px;
+  --drawer-header-height: 60px;
+  --drawer-footer-height: 60px;
+}
+
+// ==================== 工具提示 ====================
+
+:root {
+  --tooltip-padding: 8px 12px;
+  --tooltip-border-radius: var(--border-radius-base);
+  --tooltip-font-size: var(--font-size-small);
+  --tooltip-max-width: 300px;
+  --tooltip-arrow-size: 6px;
+}
+
+// ==================== 气泡确认框 ====================
+
+:root {
+  --popconfirm-padding: 12px;
+  --popconfirm-border-radius: var(--border-radius-base);
+  --popconfirm-font-size: var(--font-size-base);
+  --popconfirm-max-width: 276px;
+}
+
+// ==================== 通知系统 ====================
+
+:root {
+  --notification-width: 330px;
+  --notification-padding: 14px 26px 14px 13px;
+  --notification-border-radius: var(--border-radius-large);
+  --notification-shadow: var(--box-shadow-light);
+}
+
+// ==================== 标签系统 ====================
+
+:root {
+  --tag-padding: 0 8px;
+  --tag-height: 24px;
+  --tag-font-size: var(--font-size-small);
+  --tag-border-radius: var(--border-radius-base);
+  --tag-close-size: 12px;
+}
+
+// ==================== 徽章系统 ====================
+
+:root {
+  --badge-size: 18px;
+  --badge-font-size: var(--font-size-small);
+  --badge-border-radius: 10px;
+  --badge-padding: 0 6px;
+}
+
+// ==================== 进度条系统 ====================
+
+:root {
+  --progress-height: 6px;
+  --progress-border-radius: 100px;
+  --progress-text-font-size: var(--font-size-base);
+}
+
+// ==================== 步骤条系统 ====================
+
+:root {
+  --steps-icon-size: 32px;
+  --steps-icon-font-size: var(--font-size-medium);
+  --steps-title-font-size: var(--font-size-medium);
+  --steps-description-font-size: var(--font-size-base);
+  --steps-line-height: 2px;
+}
+
+// ==================== 时间轴系统 ====================
+
+:root {
+  --timeline-node-size: 12px;
+  --timeline-node-border-width: 2px;
+  --timeline-tail-width: 2px;
+  --timeline-item-padding-bottom: 20px;
+}
+
+// ==================== 树形控件 ====================
+
+:root {
+  --tree-node-height: 26px;
+  --tree-node-padding: 4px 0;
+  --tree-expand-icon-size: 16px;
+  --tree-indent: 18px;
+}
+
+// ==================== 穿梭框系统 ====================
+
+:root {
+  --transfer-panel-width: 200px;
+  --transfer-panel-height: 200px;
+  --transfer-item-height: 30px;
+  --transfer-item-padding: 6px 15px;
+}
+
+// ==================== 上传组件 ====================
+
+:root {
+  --upload-dragger-height: 180px;
+  --upload-dragger-border: 2px dashed var(--border-color-base);
+  --upload-dragger-border-radius: var(--border-radius-base);
+  --upload-dragger-padding: 40px;
+}
+
+// ==================== 日期选择器 ====================
+
+:root {
+  --date-picker-width: 220px;
+  --date-picker-editor-width: 220px;
+  --date-picker-cell-size: 36px;
+  --date-picker-header-height: 40px;
+}
+
+// ==================== 时间选择器 ====================
+
+:root {
+  --time-picker-width: 180px;
+  --time-picker-panel-width: 180px;
+  --time-picker-item-height: 32px;
+}
+
+// ==================== 级联选择器 ====================
+
+:root {
+  --cascader-menu-width: 180px;
+  --cascader-menu-height: 204px;
+  --cascader-node-height: 34px;
+  --cascader-node-padding: 8px 30px 8px 20px;
+}
+
+// ==================== 颜色选择器 ====================
+
+:root {
+  --color-picker-size: 40px;
+  --color-picker-alpha-size: 12px;
+  --color-picker-hue-height: 12px;
+  --color-picker-sv-panel-size: 280px;
+}
+
+// ==================== 评分组件 ====================
+
+:root {
+  --rate-icon-size: 18px;
+  --rate-icon-margin: 6px;
+  --rate-text-font-size: var(--font-size-base);
+}
+
+// ==================== 滑块组件 ====================
+
+:root {
+  --slider-height: 6px;
+  --slider-button-size: 16px;
+  --slider-button-wrapper-size: 36px;
+  --slider-stop-size: 8px;
+}
+
+// ==================== 开关组件 ====================
+
+:root {
+  --switch-height: 20px;
+  --switch-width: 40px;
+  --switch-core-border-radius: 10px;
+  --switch-button-size: 16px;
+}
+
+// ==================== 分页组件 ====================
+
+:root {
+  --pagination-button-size: 28px;
+  --pagination-button-small-size: 22px;
+  --pagination-font-size: var(--font-size-base);
+  --pagination-small-font-size: var(--font-size-small);
+}
+
+// ==================== 回到顶部 ====================
+
+:root {
+  --backtop-size: 40px;
+  --backtop-border-radius: 20px;
+  --backtop-right: 40px;
+  --backtop-bottom: 40px;
+}
+
+// ==================== 图片组件 ====================
+
+:root {
+  --image-border-radius: var(--border-radius-base);
+  --image-placeholder-font-size: var(--font-size-base);
+  --image-error-font-size: var(--font-size-base);
+}
+
+// ==================== 无限滚动 ====================
+
+:root {
+  --infinite-scroll-loading-text-font-size: var(--font-size-base);
+  --infinite-scroll-loading-spinner-size: var(--loading-spinner-size-base);
+}
+
+// ==================== 骨架屏 ====================
+
+:root {
+  --skeleton-color: #f2f2f2;
+  --skeleton-to-color: #e6e6e6;
+  --skeleton-animation-duration: 1.4s;
+}
+
+// ==================== 空状态 ====================
+
+:root {
+  --empty-padding: 40px 0;
+  --empty-image-width: 160px;
+  --empty-description-margin-top: 20px;
+  --empty-description-font-size: var(--font-size-base);
+  --empty-bottom-margin-top: 20px;
+}
+
+// ==================== 结果页 ====================
+
+:root {
+  --result-padding: 40px 32px;
+  --result-icon-font-size: 64px;
+  --result-title-font-size: 20px;
+  --result-title-margin-top: 20px;
+  --result-subtitle-margin-top: 10px;
+  --result-extra-margin-top: 24px;
+}
+
+// ==================== 统计数值 ====================
+
+:root {
+  --statistic-title-font-size: var(--font-size-base);
+  --statistic-content-font-size: 20px;
+  --statistic-content-font-weight: 500;
+}
+
+// ==================== 描述列表 ====================
+
+:root {
+  --descriptions-header-margin-bottom: 20px;
+  --descriptions-title-font-size: var(--font-size-medium);
+  --descriptions-title-font-weight: var(--font-weight-bold);
+  --descriptions-item-padding-bottom: 16px;
+  --descriptions-item-trailing-colon-margin: 0 8px 0 2px;
+  --descriptions-item-label-colon-margin-right: 8px;
+}
+
+// ==================== 自定义变量 ====================
+
+// 知识图谱相关
+:root {
+  --graph-node-size: 40px;
+  --graph-node-border-width: 2px;
+  --graph-edge-width: 2px;
+  --graph-label-font-size: var(--font-size-small);
+  --graph-toolbar-height: 50px;
+  --graph-sidebar-width: 300px;
+}
+
+// 文档编辑器
+:root {
+  --editor-toolbar-height: 40px;
+  --editor-sidebar-width: 250px;
+  --editor-line-height: 1.6;
+  --editor-font-size: var(--font-size-base);
+  --editor-border-radius: var(--border-radius-base);
+}
+
+// 搜索相关
+:root {
+  --search-input-height: 40px;
+  --search-result-item-padding: 16px;
+  --search-highlight-color: var(--color-warning);
+  --search-highlight-bg: rgba(230, 162, 60, 0.2);
+}
+
+// 仪表盘
+:root {
+  --dashboard-card-padding: 20px;
+  --dashboard-card-border-radius: var(--border-radius-large);
+  --dashboard-grid-gap: 16px;
+  --dashboard-chart-height: 300px;
+}
+
+// 系统管理
+:root {
+  --admin-sidebar-width: 200px;
+  --admin-content-padding: 24px;
+  --admin-table-header-height: 50px;
+  --admin-form-width: 600px;
+}
+
+// 响应式变量
+@media (max-width: 768px) {
+  :root {
+    --page-padding: 16px;
+    --sidebar-width: 200px;
+    --header-height: 50px;
+    --dashboard-grid-gap: 12px;
+    --dashboard-card-padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --page-padding: 12px;
+    --sidebar-width: 100%;
+    --header-height: 45px;
+    --dashboard-grid-gap: 8px;
+    --dashboard-card-padding: 12px;
+    --font-size-base: 13px;
+  }
+}

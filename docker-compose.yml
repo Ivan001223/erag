@@ -1,0 +1,288 @@
+version: '3.8'
+
+services:
+  # Neo4j 图数据库
+  neo4j:
+    image: neo4j:5.14-community
+    container_name: erag-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/password123
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=2G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Redis 缓存
+  redis:
+    image: redis:7.2-alpine
+    container_name: erag-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis123
+    volumes:
+      - redis_data:/data
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: erag-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # MySQL 数据库 (用于元数据存储)
+  mysql:
+    image: mysql:8.0
+    container_name: erag-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql123
+      - MYSQL_DATABASE=erag_metadata
+      - MYSQL_USER=erag
+      - MYSQL_PASSWORD=erag123
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # StarRocks FE (Frontend)
+  starrocks-fe:
+    image: starrocks/fe-ubuntu:3.1-latest
+    container_name: erag-starrocks-fe
+    ports:
+      - "8030:8030"
+      - "9020:9020"
+      - "9030:9030"
+    environment:
+      - FE_SERVERS=fe1:starrocks-fe:9010
+    volumes:
+      - starrocks_fe_data:/opt/starrocks/fe/meta
+      - starrocks_fe_log:/opt/starrocks/fe/log
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # StarRocks BE (Backend)
+  starrocks-be:
+    image: starrocks/be-ubuntu:3.1-latest
+    container_name: erag-starrocks-be
+    ports:
+      - "8040:8040"
+      - "9060:9060"
+      - "8060:8060"
+    environment:
+      - FE_SERVERS=starrocks-fe:9010
+      - BE_ADDR=starrocks-be:9050
+    volumes:
+      - starrocks_be_data:/opt/starrocks/be/storage
+      - starrocks_be_log:/opt/starrocks/be/log
+    depends_on:
+      - starrocks-fe
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Flink JobManager
+  flink-jobmanager:
+    image: flink:1.18-scala_2.12
+    container_name: erag-flink-jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - FLINK_PROPERTIES=jobmanager.rpc.address:flink-jobmanager
+    volumes:
+      - flink_data:/opt/flink/data
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Flink TaskManager
+  flink-taskmanager:
+    image: flink:1.18-scala_2.12
+    container_name: erag-flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - FLINK_PROPERTIES=jobmanager.rpc.address:flink-jobmanager|taskmanager.numberOfTaskSlots:2
+    volumes:
+      - flink_data:/opt/flink/data
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # OCR 服务
+  ocr-service:
+    build:
+      context: ./ocr_service
+      dockerfile: Dockerfile
+    container_name: erag-ocr-service
+    ports:
+      - "8002:8002"
+    environment:
+      - OCR_MODEL_PATH=/app/onnx_models
+      - OCR_MAX_FILE_SIZE=10485760
+    volumes:
+      - ./ocr_service/onnx_models:/app/onnx_models
+      - ocr_temp:/tmp/ocr
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: erag-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password123
+      - REDIS_URL=redis://:redis123@redis:6379
+      - STARROCKS_HOST=starrocks-fe
+      - STARROCKS_PORT=9030
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - OCR_SERVICE_URL=http://ocr-service:8002
+      - FLINK_JOBMANAGER_URL=http://flink-jobmanager:8081
+      - MYSQL_URL=mysql+pymysql://erag:erag123@mysql:3306/erag_metadata
+    volumes:
+      - backend_logs:/app/logs
+      - backend_data:/app/data
+    depends_on:
+      - neo4j
+      - redis
+      - minio
+      - mysql
+      - starrocks-fe
+      - starrocks-be
+      - ocr-service
+      - flink-jobmanager
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # 前端服务
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: erag-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: erag-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployments/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployments/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Prometheus 监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: erag-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployments/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+  # Grafana 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: erag-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployments/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployments/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - erag-network
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:
+  redis_data:
+  minio_data:
+  mysql_data:
+  starrocks_fe_data:
+  starrocks_fe_log:
+  starrocks_be_data:
+  starrocks_be_log:
+  flink_data:
+  ocr_temp:
+  backend_logs:
+  backend_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  erag-network:
+    driver: bridge

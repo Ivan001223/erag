@@ -1,0 +1,29 @@
+# FastAPI 和相关依赖
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# OCR 相关
+onnxruntime==1.16.3
+opencv-python==4.8.1.78
+numpy==1.24.3
+Pillow==10.1.0
+
+# 数据处理
+pandas==2.1.4
+openpyxl==3.1.2
+
+# 工具库
+pydantic==2.5.0
+python-dotenv==1.0.0
+requests==2.31.0
+aiofiles==23.2.1
+
+# 日志和监控
+loguru==0.7.2
+prometheus-client==0.19.0
+
+# 测试
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

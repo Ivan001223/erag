@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Enterprise RAG Knowledge Base - 企业级RAG知识库系统" />
+    <meta name="keywords" content="RAG, Knowledge Base, AI, Machine Learning, Enterprise" />
+    <meta name="author" content="ERAG Team" />
+    <title>ERAG - 企业级RAG知识库</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/src/main.ts" as="script" type="module" />
+    
+    <!-- Progressive Web App -->
+    <meta name="theme-color" content="#409EFF" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ERAG" />
+    
+    <!-- Microsoft -->
+    <meta name="msapplication-TileColor" content="#409EFF" />
+    
+    <!-- Loading styles -->
+    <style>
+      #app {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+      }
+      
+      .loading-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      .loading-logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: white;
+        font-weight: bold;
+        animation: pulse 2s infinite;
+      }
+      
+      .loading-text {
+        color: white;
+        font-size: 18px;
+        margin-bottom: 30px;
+        opacity: 0.9;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      
+      .loading-container.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Loading screen -->
+      <div id="loading" class="loading-container">
+        <div class="loading-logo">E</div>
+        <div class="loading-text">企业级RAG知识库</div>
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+    
+    <!-- Remove loading screen when app is ready -->
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.classList.add('fade-out');
+            setTimeout(function() {
+              loading.remove();
+            }, 300);
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>
