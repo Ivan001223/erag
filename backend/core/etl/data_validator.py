@@ -7,7 +7,7 @@ import re
 import json
 import uuid
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union, Callable
+from typing import Dict, List, Any, Optional, Union, Callable, Tuple
 from enum import Enum
 from dataclasses import dataclass
 

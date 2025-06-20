@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from backend.utils.logger import get_logger
 from backend.core.knowledge_graph.graph_manager import GraphManager
 from .data_structurer import DataStructurer, StructuredData, DataType
-from .data_validator import DataValidator, ValidationReport
+from .data_validator import DataValidator, DataValidationReport
 from .data_transformer import DataTransformer, TransformationReport
 from .data_loader import DataLoader, LoadReport
 
@@ -125,7 +125,7 @@ class PipelineExecution(BaseModel):
     stage_results: List[StageResult] = Field(default_factory=list)
     
     # 详细报告
-    validation_reports: List[ValidationReport] = Field(default_factory=list)
+    validation_reports: List[DataValidationReport] = Field(default_factory=list)
     transformation_reports: List[TransformationReport] = Field(default_factory=list)
     load_reports: List[LoadReport] = Field(default_factory=list)
     

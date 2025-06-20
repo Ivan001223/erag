@@ -9,12 +9,12 @@ import uuid
 
 from backend.models.knowledge import Entity, Relation, KnowledgeGraph
 from backend.core.knowledge_graph.graph_manager import GraphManager, GraphConfig
-from backend.core.knowledge_graph.entity_extractor import EntityExtractor, EntityExtractionConfig, ExtractionMethod
+from backend.core.knowledge_graph.entity_extractor import EntityExtractor, ExtractionConfig, ExtractionMethod
 from backend.core.knowledge_graph.relation_extractor import RelationExtractor, RelationExtractionConfig
 from backend.core.knowledge_graph.graph_analytics import GraphAnalytics, AnalysisConfig, AnalysisType
 from backend.core.knowledge_graph.graph_database import GraphDatabase, DatabaseConfig
 from backend.api.deps import CacheManager
-from backend.core.auth.auth_manager import get_current_user
+from backend.utils.auth import get_current_user
 from backend.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -383,7 +383,7 @@ async def extract_entities(
         manager = await get_graph_manager()
         
         # 配置提取参数
-        config = EntityExtractionConfig(
+        config = ExtractionConfig(
             method=request.method,
             entity_types=request.entity_types,
             language=request.language,
@@ -537,7 +537,7 @@ async def _build_graph_from_text_task(
         background_tasks_status[task_id]["status"] = "extracting_entities"
         
         # 提取实体
-        entity_config = EntityExtractionConfig(**request.entity_config)
+        entity_config = ExtractionConfig(**request.entity_config)
         entity_result = await manager.entity_extractor.extract_entities(
             request.text, entity_config
         )

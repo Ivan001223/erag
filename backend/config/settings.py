@@ -127,13 +127,8 @@ class Settings(BaseSettings):
     dify_api_key: Optional[str] = Field(default=None, env="DIFY_API_KEY")
     dify_workspace_id: Optional[str] = Field(default=None, env="DIFY_WORKSPACE_ID")
     
-    # MySQL 配置 (用于元数据存储)
+    # MySQL URL (用于元数据存储)
     mysql_url: Optional[str] = Field(default=None, env="MYSQL_URL")
-    mysql_host: str = Field(default="localhost", env="MYSQL_HOST")
-    mysql_port: int = Field(default=3306, env="MYSQL_PORT")
-    mysql_user: str = Field(default="root", env="MYSQL_USER")
-    mysql_password: str = Field(default="", env="MYSQL_PASSWORD")
-    mysql_database: str = Field(default="erag_metadata", env="MYSQL_DATABASE")
     
     class Config:
         env_file = ".env"

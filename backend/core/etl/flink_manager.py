@@ -15,7 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from backend.utils.logger import get_logger
-from backend.models.etl_models import ETLJobStatus
+from backend.services.etl_service import ETLJobStatus
 
 logger = get_logger(__name__)
 

@@ -23,7 +23,7 @@ from backend.core.etl.cdc_manager import CDCManager, CDCSourceConfig, CDCFilter,
 from backend.services.etl_service import ETLService
 from backend.utils.logger import get_logger
 from backend.utils.auth import get_current_user
-from backend.models.user_models import User
+from backend.models.user import User
 
 logger = get_logger(__name__)
 
@@ -39,7 +39,7 @@ pipeline_manager = PipelineManager()
 task_generator = TaskGenerator()
 flink_manager = FlinkManager()
 cdc_manager = CDCManager()
-etl_service = ETLService()
+# etl_service = ETLService()  # 暂时注释掉，服务需要依赖注入
 
 
 # ==================== 请求/响应模型 ====================

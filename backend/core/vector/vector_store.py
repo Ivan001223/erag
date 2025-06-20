@@ -19,12 +19,26 @@ import numpy as np
 import faiss
 import chromadb
 from chromadb.config import Settings
-import weaviate
-from weaviate.client import Client as WeaviateClient
-import pinecone
+try:
+    import weaviate
+    from weaviate.client import Client as WeaviateClient
+    WEAVIATE_AVAILABLE = True
+except ImportError:
+    WEAVIATE_AVAILABLE = False
+
+try:
+    import pinecone
+    PINECONE_AVAILABLE = True
+except ImportError:
+    PINECONE_AVAILABLE = False
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType, utility
+
+try:
+    from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType, utility
+    MILVUS_AVAILABLE = True
+except ImportError:
+    MILVUS_AVAILABLE = False
 
 from backend.utils.logger import get_logger
 from .embedder import EmbeddingResult

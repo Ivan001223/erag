@@ -10,9 +10,8 @@ import time
 
 from backend.config.settings import get_settings
 from backend.utils.logger import get_logger
-from backend.api.v1 import (
-    knowledge_routes,
-)
+from backend.api.v1 import knowledge_routes
+from backend.api import etl_routes, knowledge_graph, ocr
 from backend.connectors.neo4j_client import Neo4jClient
 from backend.connectors.redis_client import RedisClient
 from backend.connectors.minio_client import MinIOClient
@@ -212,7 +211,23 @@ app.include_router(
     tags=["knowledge"]
 )
 
-# 其他路由模块将在实现后添加
+app.include_router(
+    etl_routes.router,
+    prefix="/api",
+    tags=["etl"]
+)
+
+app.include_router(
+    knowledge_graph.router,
+    prefix="/api",
+    tags=["knowledge-graph"]
+)
+
+app.include_router(
+    ocr.router,
+    prefix="/api",
+    tags=["ocr"]
+)
 
 
 def get_connector(connector_type: str):

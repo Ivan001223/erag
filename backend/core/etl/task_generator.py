@@ -14,7 +14,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from backend.utils.logger import get_logger
-from backend.models.etl_models import ETLJobType, ETLJobStatus, ETLStepType
+from backend.services.etl_service import ETLJobType, ETLJobStatus, ETLStepType
 from .pipeline_manager import PipelineConfig, PipelineMode, PipelineStage
 
 logger = get_logger(__name__)

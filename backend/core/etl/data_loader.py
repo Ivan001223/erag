@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from backend.utils.logger import get_logger
 from backend.core.knowledge_graph.graph_manager import GraphManager
-from backend.core.knowledge_graph.models import Entity, Relationship
+from backend.models.knowledge import Entity, Relation
 from .data_structurer import StructuredData, DataType
 
 logger = get_logger(__name__)
@@ -382,7 +382,7 @@ class DataLoader:
             if data.relationships:
                 for rel_data in data.relationships:
                     try:
-                        relationship = Relationship(
+                        relationship = Relation(
                             id=rel_data.get("id", str(uuid.uuid4())),
                             source_id=rel_data.get("source_id"),
                             target_id=rel_data.get("target_id"),
