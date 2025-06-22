@@ -34,7 +34,6 @@ class CDCEventType(str, Enum):
 class CDCSourceType(str, Enum):
     """CDC数据源类型枚举"""
     MYSQL = "mysql"
-    POSTGRESQL = "postgresql"
     MONGODB = "mongodb"
     ORACLE = "oracle"
     SQL_SERVER = "sql_server"
@@ -674,8 +673,6 @@ class CDCManager:
         # 根据数据源类型实现不同的捕获逻辑
         if config.source_type == CDCSourceType.MYSQL:
             return await self._capture_mysql_events(source_id)
-        elif config.source_type == CDCSourceType.POSTGRESQL:
-            return await self._capture_postgresql_events(source_id)
         elif config.source_type == CDCSourceType.MONGODB:
             return await self._capture_mongodb_events(source_id)
         elif config.source_type == CDCSourceType.FILE_SYSTEM:
@@ -692,12 +689,7 @@ class CDCManager:
         # TODO: 实现MySQL事件捕获
         return await self._generate_mock_events(source_id)
 
-    async def _capture_postgresql_events(self, source_id: str) -> List[CDCEvent]:
-        """捕获PostgreSQL变更事件"""
-        # 实际实现需要使用逻辑复制或触发器
-        # 这里返回模拟事件
-        # TODO: 实现PostgreSQL事件捕获
-        return await self._generate_mock_events(source_id)
+
 
     async def _capture_mongodb_events(self, source_id: str) -> List[CDCEvent]:
         """捕获MongoDB变更事件"""

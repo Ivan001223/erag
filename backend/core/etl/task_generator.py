@@ -14,23 +14,19 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from backend.utils.logger import get_logger
-from backend.services.etl_service import ETLJobType, ETLJobStatus, ETLStepType
+from backend.models.task import (
+    TaskPriority, TaskStatus, TaskDependency
+)
 from .pipeline_manager import PipelineConfig, PipelineMode, PipelineStage
+
+# 为了兼容测试，添加别名
+ETLJobStatus = TaskStatus
 
 logger = get_logger(__name__)
 
 
-class TaskPriority(str, Enum):
-    """任务优先级枚举"""
-    LOW = "low"  # 低优先级
-    NORMAL = "normal"  # 普通优先级
-    HIGH = "high"  # 高优先级
-    URGENT = "urgent"  # 紧急优先级
-    CRITICAL = "critical"  # 关键优先级
-
-
 class TaskType(str, Enum):
-    """任务类型枚举"""
+    """ETL任务类型枚举"""
     DOCUMENT_PROCESSING = "document_processing"  # 文档处理
     DATA_INGESTION = "data_ingestion"  # 数据摄取
     KNOWLEDGE_EXTRACTION = "knowledge_extraction"  # 知识提取
@@ -104,6 +100,10 @@ class ProcessingRequirements:
     # 转换要求
     transformation_rules: List[str] = field(default_factory=list)
     custom_transformers: List[str] = field(default_factory=list)
+
+
+# 为了向后兼容，提供单数形式的别名
+ProcessingRequirement = ProcessingRequirements
 
 
 @dataclass
@@ -186,6 +186,20 @@ class ETLTask(BaseModel):
     estimated_duration: Optional[int] = None  # 秒
     estimated_cost: Optional[float] = None
     estimated_resources: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class TaskExecution:
+    """任务执行信息"""
+    task_id: str
+    execution_id: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    status: TaskStatus = TaskStatus.PENDING
+    progress: float = 0.0
+    logs: List[str] = field(default_factory=list)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    error_message: Optional[str] = None
 
 
 class TaskGenerator:

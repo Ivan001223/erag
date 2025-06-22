@@ -2,7 +2,7 @@
 
 from .base import Base, BaseModel, FullModel
 from .user import (
-    User, UserProfile, UserSession, UserActivity, UserStats, UserPreferences,
+    UserModel, UserProfile, UserSession, UserActivity, UserStats, UserPreferences,
     Permission, UserCreate, UserUpdate, UserResponse, UserLogin,
     PasswordReset, PasswordResetConfirm
 )
@@ -27,7 +27,7 @@ from .notification import (
 
 __all__ = [
     "Base", "BaseModel", "FullModel",
-    "User", "UserProfile", "UserSession", "UserActivity", "UserStats", "UserPreferences",
+    "UserModel", "UserProfile", "UserSession", "UserActivity", "UserStats", "UserPreferences",
     "Permission", "UserCreate", "UserUpdate", "UserResponse", "UserLogin",
     "PasswordReset", "PasswordResetConfirm",
     "KnowledgeBase", "Document", "DocumentChunk", "KnowledgeEntity", "KnowledgeRelation",

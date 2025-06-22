@@ -23,7 +23,7 @@ StarRocksBase = declarative_base()
 
 class StarRocksDocumentModel(StarRocksBase):
     """StarRocks文档表模型"""
-    __tablename__ = 'documents'
+    __tablename__ = 'starrocks_documents'
     
     id = Column(VARCHAR(64), primary_key=True)
     title = Column(VARCHAR(500), nullable=False)
@@ -58,7 +58,7 @@ class StarRocksDocumentModel(StarRocksBase):
 
 class StarRocksDocumentChunkModel(StarRocksBase):
     """StarRocks文档块表模型"""
-    __tablename__ = 'document_chunks'
+    __tablename__ = 'sr_document_chunks'
     
     id = Column(VARCHAR(64), primary_key=True)
     document_id = Column(VARCHAR(64), nullable=False)
@@ -409,8 +409,8 @@ class StarRocksClient:
                 )
             """,
             
-            "document_chunks": """
-                CREATE TABLE IF NOT EXISTS document_chunks (
+                    "sr_document_chunks": """
+            CREATE TABLE IF NOT EXISTS sr_document_chunks (
                     id VARCHAR(64) NOT NULL,
                     document_id VARCHAR(64) NOT NULL,
                     chunk_index INT NOT NULL,
@@ -946,7 +946,7 @@ class StarRocksClient:
         # 定义表模型映射
         table_models = {
             "documents": StarRocksDocumentModel,
-            "document_chunks": StarRocksDocumentChunkModel,
+            "sr_document_chunks": StarRocksDocumentChunkModel,
             "entities": StarRocksEntityModel,
             "relations": StarRocksRelationModel,
             "tasks": StarRocksTaskModel,

@@ -145,9 +145,11 @@ VECTOR_DB_TYPE=chroma
 CHROMA_HOST=localhost
 CHROMA_PORT=8001
 
-# 搜索引擎
-ELASTICSEARCH_URL=http://localhost:9200
-ELASTICSEARCH_INDEX=erag_documents
+# 向量数据库
+STARROCKS_HOST=localhost
+STARROCKS_PORT=9030
+STARROCKS_USER=root
+STARROCKS_PASSWORD=
 ```
 
 ```bash
@@ -356,17 +358,18 @@ services:
     networks:
       - erag-network
 
-  # Elasticsearch搜索引擎
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+  # StarRocks分析数据库
+  starrocks:
+    image: starrocks/allin1-ubuntu:latest
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - SR_USER=root
+      - SR_PASSWORD=
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - starrocks_data:/opt/starrocks/fe/meta
+      - starrocks_logs:/opt/starrocks/fe/log
     ports:
-      - "9200:9200"
+      - "9030:9030"
+      - "8030:8030"
     networks:
       - erag-network
 
@@ -407,7 +410,8 @@ volumes:
   starrocks_data:
   starrocks_logs:
   minio_data:
-  elasticsearch_data:
+  starrocks_data:
+  starrocks_logs:
   chroma_data:
 
 networks:
@@ -557,7 +561,8 @@ data:
   REDIS_URL: "redis://redis-service:6379/0"
   NEO4J_URI: "bolt://neo4j-service:7687"
   MINIO_ENDPOINT: "minio-service:9000"
-  ELASTICSEARCH_URL: "http://elasticsearch-service:9200"
+      STARROCKS_HOST: "starrocks-service"
+    STARROCKS_PORT: "9030"
   CHROMA_HOST: "chroma-service"
   CHROMA_PORT: "8001"
 ```

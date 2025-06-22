@@ -51,20 +51,37 @@ services:
       - erag-dataplatform
     restart: unless-stopped
 
-  # MySQL 数据库 (用于元数据存储)
+  # MySQL 数据库 (支持CDC)
   mysql:
     image: mysql:8.0
     container_name: erag-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: erag
+      MYSQL_USER: erag
+      MYSQL_PASSWORD: erag123
     ports:
       - "3306:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=mysql123
-      - MYSQL_DATABASE=erag_metadata
-      - MYSQL_USER=erag
-      - MYSQL_PASSWORD=erag123
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./scripts/init_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/init_mysql_cdc.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --binlog-row-image=FULL
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --log-slave-updates=ON
+      --master-info-repository=TABLE
+      --relay-log-info-repository=TABLE
+      --transaction-write-set-extraction=XXHASH64
+      --user=mysql
+      --datadir=/var/lib/mysql
+      --socket=/var/lib/mysql/mysql.sock
+      --pid-file=/var/lib/mysql/mysql.pid
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
     networks:
       - erag-dataplatform
     restart: unless-stopped

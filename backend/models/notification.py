@@ -2,10 +2,11 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from enum import Enum
 
-from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, JSON, Index
-from sqlalchemy.dialects.mysql import VARCHAR, TEXT
+from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, JSON, Index, ForeignKey
+from sqlalchemy.dialects.mysql import VARCHAR, TEXT, CHAR
 from pydantic import Field
 import json
+from sqlalchemy.sql import func
 
 from .base import Base, BaseModel, FullModel
 
@@ -25,56 +26,20 @@ class Notification(Base):
     
     __tablename__ = "notifications"
     
-    user_id: Any = Column(
-        String(36),
-        nullable=False,
-        index=True,
-        comment="用户ID"
-    )
+    user_id: Any = Column(CHAR(36), nullable=False, index=True, comment="用户ID")
+    title: Any = Column(VARCHAR(200), nullable=False, comment="通知标题")
+    content: Any = Column(TEXT, nullable=False, comment="通知内容")
+    notification_type: Any = Column(VARCHAR(50), nullable=False, default="info", comment="通知类型")
+    priority: Any = Column(Integer, nullable=False, default=1, comment="优先级")
+    meta_data: Any = Column(TEXT, nullable=True, comment="元数据JSON")
+    is_read: Any = Column(Boolean, nullable=False, default=False, comment="是否已读")
+    expires_at: Any = Column(DateTime, nullable=True, comment="过期时间")
     
-    title: Any = Column(
-        VARCHAR(200),
-        nullable=False,
-        comment="通知标题"
-    )
-    
-    content: Any = Column(
-        TEXT,
-        nullable=False,
-        comment="通知内容"
-    )
-    
-    notification_type: Any = Column(
-        VARCHAR(50),
-        nullable=False,
-        default="info",
-        comment="通知类型"
-    )
-    
-    priority: Any = Column(
-        Integer,
-        nullable=False,
-        default=1,
-        comment="优先级"
-    )
-    
-    model_metadata: Any = Column(
-        TEXT,
-        nullable=True,
-        comment="元数据JSON"
-    )
-    
-    is_read: Any = Column(
-        Boolean,
-        nullable=False,
-        default=False,
-        comment="是否已读"
-    )
-    
-    expires_at: Any = Column(
-        DateTime,
-        nullable=True,
-        comment="过期时间"
+    # 索引
+    __table_args__ = (
+        Index('idx_user_id', 'user_id'),
+        Index('idx_is_read', 'is_read'),
+        Index('idx_notification_type', 'notification_type'),
     )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -86,7 +51,7 @@ class Notification(Base):
             'content': self.content,
             'notification_type': self.notification_type,
             'priority': self.priority,
-            'metadata': json.loads(self.model_metadata) if self.model_metadata else None,
+            'metadata': json.loads(self.meta_data) if self.meta_data else None,
             'is_read': self.is_read,
             'expires_at': self.expires_at.isoformat() if self.expires_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -95,9 +60,9 @@ class Notification(Base):
     
     def get_metadata(self) -> Optional[Dict[str, Any]]:
         """获取解析后的元数据"""
-        if self.model_metadata:
+        if self.meta_data:
             try:
-                return json.loads(self.model_metadata)
+                return json.loads(self.meta_data)
             except (json.JSONDecodeError, TypeError):
                 return None
         return None
@@ -105,9 +70,9 @@ class Notification(Base):
     def set_metadata(self, metadata: Optional[Dict[str, Any]]) -> None:
         """设置元数据"""
         if metadata is not None:
-            self.model_metadata = json.dumps(metadata)
+            self.meta_data = json.dumps(metadata)
         else:
-            self.model_metadata = None
+            self.meta_data = None
     
     def __repr__(self):
         return f"<Notification(id='{self.id}', title='{self.title}', type='{self.notification_type}')>"

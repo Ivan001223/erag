@@ -372,39 +372,88 @@ class FlinkClient:
     
     def _build_source_table_sql(self, config: Dict[str, Any]) -> str:
         """构建源表SQL"""
-        # 这里根据实际需求构建源表SQL
-        # 例如：Kafka源、文件源等
-        return f"""
-        CREATE TABLE document_source (
-            doc_id STRING,
-            content STRING,
-            doc_type STRING,
-            timestamp_col TIMESTAMP(3),
-            WATERMARK FOR timestamp_col AS timestamp_col - INTERVAL '5' SECOND
-        ) WITH (
-            'connector' = '{config.get('connector', 'kafka')}',
-            'topic' = '{config.get('topic', 'documents')}',
-            'properties.bootstrap.servers' = '{config.get('bootstrap.servers', 'localhost:9092')}',
-            'format' = 'json'
-        )
-        """
+        # 默认使用MySQL CDC连接器
+        connector_type = config.get('connector', 'mysql-cdc')
+        
+        if connector_type == 'mysql-cdc':
+            return f"""
+            CREATE TABLE document_source (
+                doc_id BIGINT,
+                content STRING,
+                doc_type STRING,
+                created_at TIMESTAMP(3),
+                updated_at TIMESTAMP(3),
+                WATERMARK FOR updated_at AS updated_at - INTERVAL '5' SECOND
+            ) WITH (
+                'connector' = 'mysql-cdc',
+                'hostname' = '{config.get('hostname', 'mysql')}',
+                'port' = '{config.get('port', '3306')}',
+                'username' = '{config.get('username', 'root')}',
+                'password' = '{config.get('password', 'rootpass')}',
+                'database-name' = '{config.get('database', 'erag')}',
+                'table-name' = '{config.get('table', 'documents')}',
+                'server-id' = '{config.get('server-id', '5400-5404')}',
+                'scan.incremental.snapshot.enabled' = 'true',
+                'scan.incremental.snapshot.chunk.size' = '8096'
+            )
+            """
+        else:
+            # 支持其他连接器类型（Kafka等）
+            return f"""
+            CREATE TABLE document_source (
+                doc_id STRING,
+                content STRING,
+                doc_type STRING,
+                timestamp_col TIMESTAMP(3),
+                WATERMARK FOR timestamp_col AS timestamp_col - INTERVAL '5' SECOND
+            ) WITH (
+                'connector' = '{connector_type}',
+                'topic' = '{config.get('topic', 'documents')}',
+                'properties.bootstrap.servers' = '{config.get('bootstrap.servers', 'localhost:9092')}',
+                'format' = 'json'
+            )
+            """
     
     def _build_sink_table_sql(self, config: Dict[str, Any]) -> str:
         """构建目标表SQL"""
-        return f"""
-        CREATE TABLE processed_documents (
-            doc_id STRING,
-            processed_content STRING,
-            entities STRING,
-            relations STRING,
-            processing_time TIMESTAMP(3)
-        ) WITH (
-            'connector' = '{config.get('connector', 'kafka')}',
-            'topic' = '{config.get('topic', 'processed_documents')}',
-            'properties.bootstrap.servers' = '{config.get('bootstrap.servers', 'localhost:9092')}',
-            'format' = 'json'
-        )
-        """
+        connector_type = config.get('connector', 'starrocks')
+        
+        if connector_type == 'starrocks':
+            return f"""
+            CREATE TABLE processed_documents (
+                doc_id BIGINT,
+                processed_content STRING,
+                entities STRING,
+                relations STRING,
+                processing_time TIMESTAMP(3)
+            ) WITH (
+                'connector' = 'starrocks',
+                'jdbc-url' = '{config.get('jdbc-url', 'jdbc:mysql://starrocks:9030')}',
+                'load-url' = '{config.get('load-url', 'starrocks:8030')}',
+                'database-name' = '{config.get('database', 'erag')}',
+                'table-name' = '{config.get('table', 'processed_documents')}',
+                'username' = '{config.get('username', 'root')}',
+                'password' = '{config.get('password', '')}',
+                'sink.properties.format' = 'json',
+                'sink.properties.strip_outer_array' = 'true'
+            )
+            """
+        else:
+            # 支持其他连接器类型（Kafka等）
+            return f"""
+            CREATE TABLE processed_documents (
+                doc_id STRING,
+                processed_content STRING,
+                entities STRING,
+                relations STRING,
+                processing_time TIMESTAMP(3)
+            ) WITH (
+                'connector' = '{connector_type}',
+                'topic' = '{config.get('topic', 'processed_documents')}',
+                'properties.bootstrap.servers' = '{config.get('bootstrap.servers', 'localhost:9092')}',
+                'format' = 'json'
+            )
+            """
     
     def _build_processing_sql(self, config: Dict[str, Any]) -> str:
         """构建处理逻辑SQL"""

@@ -130,6 +130,9 @@ class GraphAnalysisResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
 
+# 为了向后兼容，提供AnalysisResult别名
+AnalysisResult = GraphAnalysisResult
+
 class GraphAnalytics:
     """图分析器"""
     

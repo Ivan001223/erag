@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 
 from backend.config.settings import get_settings
-from backend.models.user import User
+from backend.models.user import UserModel as User
 from backend.utils.logger import get_logger
 
 settings = get_settings()

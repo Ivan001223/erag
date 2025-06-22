@@ -136,7 +136,7 @@ class Task(Base):
     
     parent_task_id: Any = Column(
         String(36),
-        ForeignKey('tasks.id'),
+        ForeignKey('task_queue.id'),
         nullable=True,
         comment="父任务ID"
     )
@@ -259,6 +259,9 @@ class Task(Base):
         backref="subtasks"
     )
     
+    # 任务结果关系
+    results = relationship("TaskResult", back_populates="task", cascade="all, delete-orphan")
+    
     def is_pending(self) -> bool:
         """是否待处理"""
         return self.status == TaskStatus.PENDING
@@ -370,7 +373,7 @@ class TaskLog(Base):
     
     task_id: Any = Column(
         String(36),
-        ForeignKey('tasks.id'),
+        ForeignKey('task_queue.id'),
         nullable=False,
         index=True,
         comment="任务ID"
@@ -414,14 +417,14 @@ class TaskDependency(Base):
     
     task_id: Any = Column(
         String(36),
-        ForeignKey('tasks.id'),
+        ForeignKey('task_queue.id'),
         nullable=False,
         comment="任务ID"
     )
     
     depends_on_task_id: Any = Column(
         String(36),
-        ForeignKey('tasks.id'),
+        ForeignKey('task_queue.id'),
         nullable=False,
         comment="依赖的任务ID"
     )
@@ -888,7 +891,7 @@ class TaskResult(Base):
     
     task_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("tasks.id"),
+        ForeignKey("task_queue.id"),
         nullable=False,
         comment="任务ID"
     )

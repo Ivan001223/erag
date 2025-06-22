@@ -159,10 +159,10 @@ kubectl apply -f deployments/kubernetes/
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目采用 APACHE 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 联系方式
 
-- 项目维护者：[Your Name]
-- 邮箱：[your.email@example.com]
+- 项目维护者：[Ivan Zhang]
+- 邮箱：[Ivan520707@outlook.com]
 - 项目链接：[https://github.com/yourusername/erag](https://github.com/yourusername/erag)

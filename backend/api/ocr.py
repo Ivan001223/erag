@@ -10,7 +10,7 @@ from backend.core.ocr.ocr_service import OCRService, OCRRequest, OCRResponse
 from backend.core.ocr.quality_assurance import get_quality_assurance, QualityAssessmentConfig
 from backend.utils.logger import get_logger
 from backend.utils.auth import get_current_user
-from backend.models.user import User
+from backend.models.user import UserModel as User
 from backend.models.knowledge import Document
 from backend.services.document_service import DocumentService
 from backend.services.task_service import TaskService

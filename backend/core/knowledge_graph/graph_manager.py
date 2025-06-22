@@ -85,6 +85,18 @@ class GraphSearchResult:
     search_time: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+@dataclass
+class GraphOperationResult:
+    """图操作结果"""
+    operation_id: str
+    operation_type: GraphOperationType
+    success: bool
+    message: str = ""
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    execution_time: float = 0.0
+    timestamp: datetime = field(default_factory=datetime.now)
+
 class GraphManager:
     """知识图谱管理器"""
     

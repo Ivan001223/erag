@@ -492,7 +492,7 @@ class SearchService:
         if "chunks" in query.include_types and entity_ids:
             chunk_query = """
                 SELECT DISTINCT dc.* 
-                FROM document_chunks dc
+                FROM kb_document_chunks dc
                 JOIN chunk_entities ce ON dc.id = ce.chunk_id
                 WHERE ce.entity_id IN ({})
                   AND dc.deleted_at IS NULL

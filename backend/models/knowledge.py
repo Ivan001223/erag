@@ -3,8 +3,9 @@ from typing import Optional, List, Dict, Any, Union
 from enum import Enum
 
 from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, Float, Enum as SQLEnum, JSON, ForeignKey, Index
-from sqlalchemy.dialects.mysql import VARCHAR, TEXT, LONGTEXT, MEDIUMTEXT
+from sqlalchemy.dialects.mysql import VARCHAR, TEXT, LONGTEXT, MEDIUMTEXT, CHAR, BIGINT
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from pydantic import Field, validator, BaseModel as PydanticBaseModel
 
 from .base import Base, BaseModel, FullModel
@@ -67,68 +68,26 @@ class ProcessingStage(str, Enum):
 class KnowledgeBase(Base):
     """知识库SQLAlchemy模型"""
     
-
     __allow_unmapped__ = True
     __tablename__ = "knowledge_bases"
     
-    name: Any = Column(
-        VARCHAR(200),
-        nullable=False,
-        comment="知识库名称"
-    )
-    
-    description: Any = Column(
-        TEXT,
-        nullable=True,
-        comment="知识库描述"
-    )
-    
-    owner_id: Any = Column(
-        String(36),
-        nullable=False,
-        index=True,
-        comment="所有者ID"
-    )
-    
-    is_public: Any = Column(
-        Boolean,
-        default=False,
-        nullable=False,
-        comment="是否公开"
-    )
-    
-    settings: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="知识库设置(JSON)"
-    )
-    
-    model_metadata: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="元数据(JSON)"
-    )
+    name: Any = Column(VARCHAR(200), nullable=False, comment="知识库名称")
+    description: Any = Column(TEXT, nullable=True, comment="知识库描述")
+    owner_id: Any = Column(CHAR(36), nullable=False, index=True, comment="所有者ID")
+    is_public: Any = Column(Boolean, default=False, nullable=False, comment="是否公开")
+    settings: Any = Column(LONGTEXT, nullable=True, comment="知识库设置(JSON)")
+    meta_data: Any = Column(LONGTEXT, nullable=True, comment="元数据(JSON)")
     
     # 统计信息
-    document_count: Any = Column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="文档数量"
-    )
+    document_count: Any = Column(Integer, default=0, nullable=False, comment="文档数量")
+    chunk_count: Any = Column(Integer, default=0, nullable=False, comment="文档块数量")
+    total_size: Any = Column(BIGINT, default=0, nullable=False, comment="总大小(字节)")
     
-    chunk_count: Any = Column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="文档块数量"
-    )
-    
-    total_size: Any = Column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="总大小(字节)"
+    # 索引
+    __table_args__ = (
+        Index('idx_owner_id', 'owner_id'),
+        Index('idx_is_public', 'is_public'),
+        Index('idx_name', 'name'),
     )
     
     # 关联关系
@@ -138,341 +97,92 @@ class KnowledgeBase(Base):
 class Document(Base):
     """文档SQLAlchemy模型"""
     
-
     __allow_unmapped__ = True
-    __tablename__ = "knowledge_documents"
+    __tablename__ = "kb_documents"
     
-    title: Any = Column(
-        VARCHAR(500),
-        nullable=False,
-        comment="文档标题"
-    )
+    knowledge_base_id: Any = Column(CHAR(36), ForeignKey('knowledge_bases.id'), nullable=False, comment="知识库ID")
+    title: Any = Column(VARCHAR(500), nullable=False, comment="文档标题")
     
-    filename: Any = Column(
-        VARCHAR(255),
-        nullable=False,
-        comment="文件名"
-    )
+    # 文件信息
+    filename: Any = Column(VARCHAR(500), nullable=True, comment="文件名")
+    file_path: Any = Column(VARCHAR(1000), nullable=True, comment="文件路径")
+    file_size: Any = Column(BIGINT, nullable=True, comment="文件大小(字节)")
+    file_type: Any = Column(VARCHAR(50), nullable=True, comment="文件类型")
+    mime_type: Any = Column(VARCHAR(100), nullable=True, comment="MIME类型")
+    file_hash: Any = Column(VARCHAR(64), nullable=True, comment="文件哈希")
     
-    file_path: Any = Column(
-        VARCHAR(1000),
-        nullable=True,
-        comment="文件路径"
-    )
-    
-    file_url: Any = Column(
-        VARCHAR(1000),
-        nullable=True,
-        comment="文件URL"
-    )
-    
-    file_size: Any = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="文件大小(字节)"
-    )
-    
-    file_hash: Any = Column(
-        VARCHAR(64),
-        nullable=True,
-        index=True,
-        comment="文件哈希值"
-    )
-    
-    mime_type: Any = Column(
-        VARCHAR(100),
-        nullable=True,
-        comment="MIME类型"
-    )
-    
-    document_type: Any = Column(
-        SQLEnum(DocumentType),
-        nullable=False,
-        comment="文档类型"
-    )
-    
-    status: Any = Column(
-        SQLEnum(DocumentStatus),
-        default=DocumentStatus.UPLOADED,
-        nullable=False,
-        index=True,
-        comment="文档状态"
-    )
-    
-    processing_stage: Any = Column(
-        SQLEnum(ProcessingStage),
-        default=ProcessingStage.UPLOAD,
-        nullable=False,
-        comment="处理阶段"
-    )
-    
-    # 关联信息
-    knowledge_base_id: Any = Column(
-        String(36),
-        ForeignKey('knowledge_bases.id'),
-        nullable=False,
-        index=True,
-        comment="知识库ID"
-    )
-    
-    user_id: Any = Column(
-        String(36),
-        nullable=False,
-        index=True,
-        comment="上传用户ID"
-    )
+    # 状态信息
+    status: Any = Column(VARCHAR(20), default="pending", nullable=False, comment="处理状态")
     
     # 内容信息
-    content: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="文档内容"
-    )
-    
-    summary: Any = Column(
-        TEXT,
-        nullable=True,
-        comment="文档摘要"
-    )
-    
-    keywords: Any = Column(
-        TEXT,
-        nullable=True,
-        comment="关键词(JSON)"
-    )
-    
-    language: Any = Column(
-        VARCHAR(10),
-        nullable=True,
-        comment="语言"
-    )
+    content: Any = Column(LONGTEXT, nullable=True, comment="文档内容")
+    summary: Any = Column(TEXT, nullable=True, comment="文档摘要")
+    keywords: Any = Column(TEXT, nullable=True, comment="关键词(JSON)")
+    language: Any = Column(VARCHAR(10), nullable=True, comment="语言")
     
     # 处理信息
-    processed_at: Any = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="处理完成时间"
-    )
-    
-    processing_time: Any = Column(
-        Float,
-        nullable=True,
-        comment="处理耗时(秒)"
-    )
-    
-    error_message: Any = Column(
-        TEXT,
-        nullable=True,
-        comment="错误信息"
-    )
+    processed_at: Any = Column(DateTime, nullable=True, comment="处理完成时间")
+    processing_time: Any = Column(Float, nullable=True, comment="处理耗时(秒)")
+    error_message: Any = Column(TEXT, nullable=True, comment="错误信息")
     
     # 统计信息
-    page_count: Any = Column(
-        Integer,
-        nullable=True,
-        comment="页数"
-    )
-    
-    word_count: Any = Column(
-        Integer,
-        nullable=True,
-        comment="字数"
-    )
-    
-    chunk_count: Any = Column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="文档块数量"
-    )
+    page_count: Any = Column(Integer, nullable=True, comment="页数")
+    word_count: Any = Column(Integer, nullable=True, comment="字数")
+    chunk_count: Any = Column(Integer, default=0, nullable=False, comment="文档块数量")
     
     # 元数据
-    model_metadata: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="元数据(JSON)"
-    )
+    meta_data: Any = Column(LONGTEXT, nullable=True, comment="元数据(JSON)")
     
     # 版本信息
-    version: Any = Column(
-        Integer,
-        default=1,
-        nullable=False,
-        comment="版本号"
-    )
+    version: Any = Column(Integer, default=1, nullable=False, comment="版本号")
+    parent_document_id: Any = Column(CHAR(36), ForeignKey('kb_documents.id'), nullable=True, comment="父文档ID")
     
-    parent_document_id: Any = Column(
-        String(36),
-        ForeignKey('documents.id'),
-        nullable=True,
-        comment="父文档ID"
+    # 索引
+    __table_args__ = (
+        Index('idx_document_kb_status', 'knowledge_base_id', 'status'),
+        Index('idx_document_type_processed', 'file_type', 'processed_at'),
+        Index('idx_document_hash', 'file_hash'),
+        Index('idx_document_parent', 'parent_document_id'),
     )
     
     # 关联关系
     knowledge_base = relationship("KnowledgeBase", back_populates="documents")
     chunks = relationship("DocumentChunk", back_populates="document")
-    parent_document = relationship(
-        "Document",
-        remote_side="Document.id",
-        backref="child_documents"
-    )
-    
-    # 索引
-    __table_args__ = (
-        Index('idx_document_kb_status', 'knowledge_base_id', 'status'),
-        Index('idx_document_user_created', 'user_id', 'created_at'),
-        Index('idx_document_type_status', 'document_type', 'status'),
-    )
-    
-    def is_processing(self) -> bool:
-        """是否正在处理"""
-        return self.status == DocumentStatus.PROCESSING
-    
-    def is_processed(self) -> bool:
-        """是否已处理"""
-        return self.status == DocumentStatus.PROCESSED
-    
-    def is_indexed(self) -> bool:
-        """是否已索引"""
-        return self.status == DocumentStatus.INDEXED
-    
-    def is_failed(self) -> bool:
-        """是否失败"""
-        return self.status == DocumentStatus.FAILED
-    
-    def mark_processing(self, stage: ProcessingStage) -> None:
-        """标记为处理中"""
-        self.status = DocumentStatus.PROCESSING
-        self.processing_stage = stage
-    
-    def mark_processed(self) -> None:
-        """标记为已处理"""
-        self.status = DocumentStatus.PROCESSED
-        self.processing_stage = ProcessingStage.COMPLETED
-        self.processed_at = datetime.now()
-    
-    def mark_indexed(self) -> None:
-        """标记为已索引"""
-        self.status = DocumentStatus.INDEXED
-    
-    def mark_failed(self, error_message: str) -> None:
-        """标记为失败"""
-        self.status = DocumentStatus.FAILED
-        self.error_message = error_message
-        self.processed_at = datetime.now()
 
 
 class DocumentChunk(Base):
     """文档块SQLAlchemy模型"""
     
-
     __allow_unmapped__ = True
-    __tablename__ = "knowledge_document_chunks"
+    __tablename__ = "kb_document_chunks"
     
-    document_id: Any = Column(
-        String(36),
-        ForeignKey('documents.id'),
-        nullable=False,
-        index=True,
-        comment="文档ID"
-    )
+    document_id: Any = Column(CHAR(36), ForeignKey('kb_documents.id'), nullable=False, comment="文档ID")
+    chunk_index: Any = Column(Integer, nullable=False, comment="块索引")
     
-    chunk_index: Any = Column(
-        Integer,
-        nullable=False,
-        comment="块索引"
-    )
-    
-    chunk_type: Any = Column(
-        SQLEnum(ChunkType),
-        default=ChunkType.PARAGRAPH,
-        nullable=False,
-        comment="块类型"
-    )
-    
-    content: Any = Column(
-        LONGTEXT,
-        nullable=False,
-        comment="块内容"
-    )
-    
-    content_hash: Any = Column(
-        VARCHAR(64),
-        nullable=True,
-        index=True,
-        comment="内容哈希值"
-    )
+    # 内容信息
+    content: Any = Column(TEXT, nullable=False, comment="块内容")
+    content_hash: Any = Column(VARCHAR(64), nullable=True, comment="内容哈希")
     
     # 位置信息
-    start_position: Any = Column(
-        Integer,
-        nullable=True,
-        comment="开始位置"
-    )
+    start_pos: Any = Column(Integer, nullable=True, comment="开始位置")
+    end_pos: Any = Column(Integer, nullable=True, comment="结束位置")
+    page_number: Any = Column(Integer, nullable=True, comment="页码")
     
-    end_position: Any = Column(
-        Integer,
-        nullable=True,
-        comment="结束位置"
-    )
-    
-    page_number: Any = Column(
-        Integer,
-        nullable=True,
-        comment="页码"
-    )
-    
-    # 内容统计
-    word_count: Any = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="字数"
-    )
-    
-    char_count: Any = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="字符数"
-    )
+    # 块信息
+    chunk_type: Any = Column(VARCHAR(50), default="text", nullable=False, comment="块类型")
+    chunk_size: Any = Column(Integer, nullable=False, comment="块大小")
+    token_count: Any = Column(Integer, nullable=True, comment="Token数量")
     
     # 向量信息
-    embedding_vector: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="向量表示(JSON)"
-    )
-    
-    embedding_model: Any = Column(
-        VARCHAR(100),
-        nullable=True,
-        comment="向量模型"
-    )
-    
-    embedding_dimension: Any = Column(
-        Integer,
-        nullable=True,
-        comment="向量维度"
-    )
+    embedding_vector: Any = Column(LONGTEXT, nullable=True, comment="向量表示(JSON)")
+    embedding_model: Any = Column(VARCHAR(100), nullable=True, comment="嵌入模型")
+    embedding_dimension: Any = Column(Integer, nullable=True, comment="向量维度")
     
     # 处理信息
-    processed_at: Any = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="处理时间"
-    )
+    processed_at: Any = Column(DateTime, nullable=True, comment="处理时间")
     
     # 元数据
-    model_metadata: Any = Column(
-        LONGTEXT,
-        nullable=True,
-        comment="元数据(JSON)"
-    )
-    
-    # 关联关系
-    document = relationship("Document", back_populates="chunks")
+    meta_data: Any = Column(LONGTEXT, nullable=True, comment="元数据(JSON)")
     
     # 索引
     __table_args__ = (
@@ -480,6 +190,9 @@ class DocumentChunk(Base):
         Index('idx_chunk_type_processed', 'chunk_type', 'processed_at'),
         Index('idx_chunk_hash', 'content_hash'),
     )
+    
+    # 关联关系
+    document = relationship("Document", back_populates="chunks")
     
     def has_embedding(self) -> bool:
         """是否有向量表示"""
@@ -1169,6 +882,8 @@ class KnowledgeRelationBase(BaseModel):
 class Entity(BaseModel):
     """实体模型"""
     
+    model_config = {"extra": "allow"}  # 允许额外字段
+    
     id: str = Field(
         ...,
         description="实体ID"
@@ -1202,6 +917,11 @@ class Entity(BaseModel):
     relevance_score: Optional[float] = Field(
         default=None,
         description="相关性分数"
+    )
+    
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="元数据"
     )
 
 
@@ -1237,10 +957,82 @@ class Relation(BaseModel):
         default=None,
         description="关系属性"
     )
+    
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="元数据"
+    )
+    
+    # 为了向后兼容，添加字段别名
+    @property
+    def source_id(self) -> str:
+        """源实体ID别名"""
+        return self.source_entity_id
+    
+    @source_id.setter
+    def source_id(self, value: str):
+        """设置源实体ID"""
+        self.source_entity_id = value
+    
+    @property
+    def target_id(self) -> str:
+        """目标实体ID别名"""
+        return self.target_entity_id
+    
+    @target_id.setter
+    def target_id(self, value: str):
+        """设置目标实体ID"""
+        self.target_entity_id = value
+    
+    @property
+    def subject_id(self) -> str:
+        """主体实体ID别名（兼容GraphManager）"""
+        return self.source_entity_id
+    
+    @subject_id.setter
+    def subject_id(self, value: str):
+        """设置主体实体ID"""
+        self.source_entity_id = value
+    
+    @property
+    def object_id(self) -> str:
+        """客体实体ID别名（兼容GraphManager）"""
+        return self.target_entity_id
+    
+    @object_id.setter
+    def object_id(self, value: str):
+        """设置客体实体ID"""
+        self.target_entity_id = value
+    
+    @property
+    def confidence(self) -> Optional[float]:
+        """置信度别名"""
+        return self.confidence_score
+    
+    @confidence.setter
+    def confidence(self, value: Optional[float]):
+        """设置置信度"""
+        self.confidence_score = value
+    
+    def __init__(self, **data):
+        # 处理字段别名
+        if 'source_id' in data:
+            data['source_entity_id'] = data.pop('source_id')
+        if 'target_id' in data:
+            data['target_entity_id'] = data.pop('target_id')
+        if 'subject_id' in data:
+            data['source_entity_id'] = data.pop('subject_id')
+        if 'object_id' in data:
+            data['target_entity_id'] = data.pop('object_id')
+        if 'confidence' in data:
+            data['confidence_score'] = data.pop('confidence')
+        super().__init__(**data)
 
 
 class KnowledgeGraph(BaseModel):
     """知识图谱模型"""
+    
+    model_config = {"extra": "allow"}  # 允许额外字段
     
     id: str = Field(
         ...,

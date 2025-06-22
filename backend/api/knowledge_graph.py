@@ -15,7 +15,7 @@ from backend.core.knowledge_graph.graph_analytics import GraphAnalytics, Analysi
 from backend.core.knowledge_graph.graph_database import GraphDatabase, DatabaseConfig
 from backend.api.deps import CacheManager
 from backend.utils.auth import get_current_user
-from backend.models.user import User
+from backend.models.user import UserModel as User
 
 logger = logging.getLogger(__name__)
 

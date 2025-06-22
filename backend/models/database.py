@@ -3,7 +3,7 @@ from enum import Enum
 from datetime import datetime
 
 from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, Float, Enum as SQLEnum, JSON, ForeignKey, Index, ARRAY
-from sqlalchemy.dialects.mysql import VARCHAR, TEXT, LONGTEXT, MEDIUMTEXT, BIGINT
+from sqlalchemy.dialects.mysql import VARCHAR, TEXT, LONGTEXT, MEDIUMTEXT, BIGINT, CHAR, DECIMAL
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from pydantic import BaseModel as PydanticBaseModel
@@ -15,7 +15,7 @@ class DocumentModel(Base):
     """文档表模型"""
 
     __allow_unmapped__ = True
-    __tablename__ = 'documents'
+    __tablename__ = 'base_documents'
     
     title: Any = Column(VARCHAR(500), nullable=False, comment='文档标题')
     content: Any = Column(LONGTEXT, comment='文档内容')
@@ -24,7 +24,7 @@ class DocumentModel(Base):
     file_size: Any = Column(BIGINT, default=0, comment='文件大小')
     page_count: Any = Column(Integer, default=0, comment='页数')
     language: Any = Column(VARCHAR(10), default='zh', comment='语言')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    meta_data: Any = Column(JSON, comment='元数据')
     vector_status: Any = Column(VARCHAR(20), default='pending', comment='向量化状态')
     kg_status: Any = Column(VARCHAR(20), default='pending', comment='知识图谱状态')
     
@@ -44,14 +44,14 @@ class DocumentChunkModel(Base):
     """文档块表模型"""
 
     __allow_unmapped__ = True
-    __tablename__ = 'document_chunks'
+    __tablename__ = 'base_document_chunks'
     
-    document_id: Any = Column(String(64), ForeignKey('documents.id'), nullable=False, comment='文档ID')
+    document_id: Any = Column(CHAR(36), ForeignKey('base_documents.id'), nullable=False, comment='文档ID')
     chunk_index: Any = Column(Integer, nullable=False, comment='块索引')
     content: Any = Column(TEXT, nullable=False, comment='块内容')
     chunk_size: Any = Column(Integer, nullable=False, comment='块大小')
     overlap_size: Any = Column(Integer, default=0, comment='重叠大小')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    meta_data: Any = Column(JSON, comment='元数据')
     embedding_vector: Any = Column(JSON, comment='嵌入向量')
     
     # 索引
@@ -75,7 +75,7 @@ class EntityModel(Base):
     entity_type: Any = Column(VARCHAR(100), nullable=False, comment='实体类型')
     description: Any = Column(TEXT, comment='实体描述')
     properties: Any = Column(JSON, comment='实体属性')
-    confidence: Any = Column(Float, default=0.0, comment='置信度')
+    confidence: Any = Column(DECIMAL(3, 2), default=0.0, comment='置信度')
     source_documents: Any = Column(JSON, comment='来源文档')
     
     # 索引
@@ -97,11 +97,11 @@ class RelationModel(Base):
     __allow_unmapped__ = True
     __tablename__ = 'relations'
     
-    source_id: Any = Column(String(64), ForeignKey('entities.id'), nullable=False, comment='源实体ID')
-    target_id: Any = Column(String(64), ForeignKey('entities.id'), nullable=False, comment='目标实体ID')
+    source_id: Any = Column(CHAR(36), ForeignKey('entities.id'), nullable=False, comment='源实体ID')
+    target_id: Any = Column(CHAR(36), ForeignKey('entities.id'), nullable=False, comment='目标实体ID')
     relation_type: Any = Column(VARCHAR(100), nullable=False, comment='关系类型')
     properties: Any = Column(JSON, comment='关系属性')
-    confidence: Any = Column(Float, default=0.0, comment='置信度')
+    confidence: Any = Column(DECIMAL(3, 2), default=0.0, comment='置信度')
     source_documents: Any = Column(JSON, comment='来源文档')
     
     # 索引
@@ -129,7 +129,7 @@ class TaskModel(Base):
     input_data: Any = Column(JSON, comment='输入数据')
     output_data: Any = Column(JSON, comment='输出数据')
     error_message: Any = Column(TEXT, comment='错误信息')
-    progress: Any = Column(Float, default=0.0, comment='进度')
+    progress: Any = Column(DECIMAL(5, 2), default=0.0, comment='进度')
     priority: Any = Column(Integer, default=0, comment='优先级')
     
     # 索引
@@ -147,12 +147,12 @@ class QueryLogModel(Base):
     __allow_unmapped__ = True
     __tablename__ = 'query_logs'
     
-    user_id: Any = Column(String(64), comment='用户ID')
+    user_id: Any = Column(VARCHAR(64), comment='用户ID')
     query: Any = Column(TEXT, nullable=False, comment='查询内容')
     search_type: Any = Column(VARCHAR(50), comment='搜索类型')
     result_count: Any = Column(Integer, default=0, comment='结果数量')
-    response_time: Any = Column(Float, comment='响应时间')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    response_time: Any = Column(DECIMAL(10, 3), comment='响应时间')
+    meta_data: Any = Column(JSON, comment='元数据')
     
     # 索引
     __table_args__ = (
@@ -169,7 +169,7 @@ class MetricModel(Base):
     __tablename__ = 'metrics'
     
     metric_name: Any = Column(VARCHAR(100), nullable=False, comment='指标名称')
-    metric_value: Any = Column(Float, nullable=False, comment='指标值')
+    metric_value: Any = Column(DECIMAL(15, 4), nullable=False, comment='指标值')
     metric_type: Any = Column(VARCHAR(50), comment='指标类型')
     tags: Any = Column(JSON, comment='标签')
     
@@ -188,7 +188,7 @@ class VectorModel(Base):
     __tablename__ = 'vectors'
     
     text: Any = Column(TEXT, comment='文本内容')
-    vector: Any = Column(JSON, comment='向量数据')  # 在MySQL中使用JSON存储向量
+    vector: Any = Column(JSON, comment='向量数据')
     model: Any = Column(VARCHAR(100), comment='模型名称')
     vector_type: Any = Column(VARCHAR(50), comment='向量类型')
     dimension: Any = Column(Integer, comment='向量维度')
@@ -197,7 +197,7 @@ class VectorModel(Base):
     chunk_index: Any = Column(Integer, comment='块索引')
     page_number: Any = Column(Integer, comment='页码')
     language: Any = Column(VARCHAR(10), comment='语言')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    meta_data: Any = Column(JSON, comment='元数据')
     
     # 索引
     __table_args__ = (
@@ -231,7 +231,7 @@ class ConfigModel(Base):
     created_by: Any = Column(VARCHAR(255), comment='创建者')
     updated_by: Any = Column(VARCHAR(255), comment='更新者')
     tags: Any = Column(JSON, comment='标签')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    meta_data: Any = Column(JSON, comment='元数据')
     
     # 索引
     __table_args__ = (
@@ -257,7 +257,7 @@ class ConfigHistoryModel(Base):
     changed_by: Any = Column(VARCHAR(255), comment='变更者')
     change_reason: Any = Column(TEXT, comment='变更原因')
     timestamp: Any = Column(DateTime, default=func.now(), comment='时间戳')
-    model_metadata: Any = Column(JSON, comment='元数据')
+    meta_data: Any = Column(JSON, comment='元数据')
     
     # 索引
     __table_args__ = (
@@ -284,7 +284,7 @@ class ConfigTemplateModel(Base):
     __table_args__ = (
         Index('idx_name', 'name'),
         Index('idx_category', 'category'),
-        Index('idx_is_default', 'is_default'),
+        Index('idx_version', 'version'),
     )
 
 
@@ -333,7 +333,7 @@ class ETLJobRunModel(Base):
     __allow_unmapped__ = True
     __tablename__ = 'etl_job_runs'
     
-    job_id: Any = Column(String(64), ForeignKey('etl_jobs.id'), nullable=False, comment='作业ID')
+    job_id: Any = Column(CHAR(36), ForeignKey('etl_jobs.id'), nullable=False, comment='作业ID')
     run_number: Any = Column(Integer, comment='运行编号')
     status: Any = Column(VARCHAR(50), comment='状态')
     start_time: Any = Column(DateTime, comment='开始时间')
@@ -364,10 +364,10 @@ class ETLMetricModel(Base):
     __allow_unmapped__ = True
     __tablename__ = 'etl_metrics'
     
-    job_id: Any = Column(String(64), comment='作业ID')
-    run_id: Any = Column(String(64), comment='运行ID')
+    job_id: Any = Column(CHAR(36), comment='作业ID')
+    run_id: Any = Column(CHAR(36), comment='运行ID')
     metric_name: Any = Column(VARCHAR(100), comment='指标名称')
-    metric_value: Any = Column(Float, comment='指标值')
+    metric_value: Any = Column(DECIMAL(15, 4), comment='指标值')
     metric_type: Any = Column(VARCHAR(50), comment='指标类型')
     timestamp: Any = Column(DateTime, default=func.now(), comment='时间戳')
     tags: Any = Column(JSON, comment='标签')

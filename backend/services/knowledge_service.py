@@ -1,10 +1,18 @@
-"""知识图谱服务"""
+"""知识图谱服务
+
+优化后的知识图谱服务，提供完整的实体和关系管理功能。
+"""
 
 import asyncio
+import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple, Set
 from uuid import uuid4
 
+from ..core.base_service import (
+    BaseService, ServiceError, ValidationError, NotFoundError, 
+    ConflictError, ExternalServiceError
+)
 from ..config import get_settings
 from ..config.constants import (
     EntityType, RelationType, ConfidenceLevel, QueryType,
@@ -22,29 +30,31 @@ from ..repositories import (
     EntityRepository, RelationRepository, DocumentRepository,
     KnowledgeRepository, VectorRepository
 )
-from ..utils import get_logger
 from .llm_service import LLMService
 from .vector_service import VectorService
 
 
-class KnowledgeService:
-    """知识图谱服务"""
+class KnowledgeService(BaseService):
+    """知识图谱服务
+    
+    提供完整的知识图谱管理功能，包括实体和关系的创建、查询、更新和删除。
+    """
     
     def __init__(
         self,
         neo4j_client: Neo4jClient,
         redis_client: RedisClient,
         db_session: Session,
-        llm_service: LLMService,
-        vector_service: VectorService
+        llm_service: Optional[LLMService] = None,
+        vector_service: Optional[VectorService] = None
     ):
+        super().__init__("KnowledgeService")
+        
         self.neo4j = neo4j_client
         self.redis = redis_client
         self.db = db_session
         self.llm_service = llm_service
         self.vector_service = vector_service
-        self.settings = get_settings()
-        self.logger = get_logger(__name__)
         
         # 初始化仓库
         self.entity_repo = EntityRepository(db_session)
@@ -53,14 +63,60 @@ class KnowledgeService:
         self.knowledge_repo = KnowledgeRepository(db_session)
         self.vector_repo = VectorRepository(db_session)
     
+    async def initialize(self) -> None:
+        """初始化服务"""
+        await self._verify_dependencies()
+        self.logger.info("知识服务初始化完成")
+    
+    async def cleanup(self) -> None:
+        """清理服务资源"""
+        self.clear_cache()
+        self.logger.info("知识服务清理完成")
+    
+    async def _verify_dependencies(self) -> None:
+        """验证依赖服务"""
+        try:
+            # 检查Neo4j连接
+            await self.neo4j.verify_connectivity()
+            
+            # 检查Redis连接
+            await self.redis.ping()
+            
+            self.logger.info("所有依赖服务验证通过")
+        except Exception as e:
+            raise ServiceError(f"依赖服务验证失败: {str(e)}", "DEPENDENCY_ERROR")
+    
     async def extract_entities_from_text(
         self,
         text: str,
         document_id: Optional[str] = None,
         chunk_id: Optional[str] = None,
         user_id: Optional[str] = None
-    ) -> APIResponse[List[Entity]]:
-        """从文本中提取实体"""
+    ) -> List[Entity]:
+        """从文本中提取实体
+        
+        Args:
+            text: 要处理的文本
+            document_id: 源文档ID
+            chunk_id: 源文档块ID
+            user_id: 用户ID
+            
+        Returns:
+            提取的实体列表
+            
+        Raises:
+            ValidationError: 输入验证错误
+            ExternalServiceError: LLM服务错误
+        """
+        if not text or not text.strip():
+            raise ValidationError("文本内容不能为空", "text", text)
+        
+        if len(text) > 10000:  # 限制文本长度
+            raise ValidationError("文本长度不能超过10000字符", "text", len(text))
+        
+        if not self.llm_service:
+            raise ServiceError("LLM服务未初始化", "LLM_SERVICE_NOT_AVAILABLE")
+        
         try:
             # 使用LLM提取实体
             extraction_prompt = self._build_entity_extraction_prompt(text)
@@ -71,10 +127,7 @@ class KnowledgeService:
             )
             
             if not llm_response.is_success():
-                return ErrorResponse(
-                    message="Failed to extract entities using LLM",
-                    error_code="LLM_EXTRACTION_FAILED"
-                )
+                raise ExternalServiceError("LLM", "实体提取失败")
             
             # 解析LLM响应
             entities_data = self._parse_entity_extraction_response(llm_response.data)
@@ -82,6 +135,9 @@ class KnowledgeService:
             # 创建实体对象
             entities = []
             for entity_data in entities_data:
+                # 验证实体数据
+                self._validate_entity_data(entity_data)
+                
                 entity = Entity(
                     id=str(uuid4()),
                     name=entity_data["name"],
@@ -100,23 +156,22 @@ class KnowledgeService:
                 )
                 entities.append(entity)
             
-            # 保存实体
-            for entity in entities:
-                await self._save_entity(entity)
+            # 批量保存实体
+            await self._batch_save_entities(entities)
             
-            self.logger.info(f"Extracted {len(entities)} entities from text")
-            return APIResponse(
-                status="success",
-                message=f"Successfully extracted {len(entities)} entities",
-                data=entities
-            )
+            self.logger.info(f"成功提取 {len(entities)} 个实体", extra={
+                "entity_count": len(entities),
+                "document_id": document_id,
+                "user_id": user_id
+            })
             
+            return entities
+            
+        except ServiceError:
+            raise
         except Exception as e:
-            self.logger.error(f"Error extracting entities: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to extract entities: {str(e)}",
-                error_code="ENTITY_EXTRACTION_FAILED"
-            )
+            self.logger.error(f"实体提取过程中发生错误: {str(e)}")
+            raise ServiceError(f"实体提取失败: {str(e)}", "ENTITY_EXTRACTION_FAILED")
     
     async def extract_relations_from_text(
         self,
@@ -125,16 +180,30 @@ class KnowledgeService:
         document_id: Optional[str] = None,
         chunk_id: Optional[str] = None,
         user_id: Optional[str] = None
-    ) -> APIResponse[List[Relation]]:
-        """从文本中提取关系"""
-        try:
-            if len(entities) < 2:
-                return APIResponse(
-                    status="success",
-                    message="Not enough entities to extract relations",
-                    data=[]
-                )
+    ) -> List[Relation]:
+        """从文本中提取关系
+        
+        Args:
+            text: 要处理的文本
+            entities: 已提取的实体列表
+            document_id: 源文档ID
+            chunk_id: 源文档块ID
+            user_id: 用户ID
             
+        Returns:
+            提取的关系列表
+        """
+        if not text or not text.strip():
+            raise ValidationError("文本内容不能为空", "text", text)
+        
+        if len(entities) < 2:
+            self.logger.info("实体数量不足，无法提取关系")
+            return []
+        
+        if not self.llm_service:
+            raise ServiceError("LLM服务未初始化", "LLM_SERVICE_NOT_AVAILABLE")
+        
+        try:
             # 使用LLM提取关系
             extraction_prompt = self._build_relation_extraction_prompt(text, entities)
             llm_response = await self.llm_service.generate_response(
@@ -144,10 +213,7 @@ class KnowledgeService:
             )
             
             if not llm_response.is_success():
-                return ErrorResponse(
-                    message="Failed to extract relations using LLM",
-                    error_code="LLM_EXTRACTION_FAILED"
-                )
+                raise ExternalServiceError("LLM", "关系提取失败")
             
             # 解析LLM响应
             relations_data = self._parse_relation_extraction_response(llm_response.data)
@@ -157,6 +223,9 @@ class KnowledgeService:
             entity_name_to_id = {entity.name: entity.id for entity in entities}
             
             for relation_data in relations_data:
+                # 验证关系数据
+                self._validate_relation_data(relation_data, entity_name_to_id)
+                
                 source_name = relation_data.get("source")
                 target_name = relation_data.get("target")
                 
@@ -180,46 +249,22 @@ class KnowledgeService:
                     )
                     relations.append(relation)
             
-            # 保存关系
-            for relation in relations:
-                await self._save_relation(relation)
+            # 批量保存关系
+            await self._batch_save_relations(relations)
             
-            self.logger.info(f"Extracted {len(relations)} relations from text")
-            return APIResponse(
-                status="success",
-                message=f"Successfully extracted {len(relations)} relations",
-                data=relations
-            )
+            self.logger.info(f"成功提取 {len(relations)} 个关系", extra={
+                "relation_count": len(relations),
+                "document_id": document_id,
+                "user_id": user_id
+            })
             
+            return relations
+            
+        except ServiceError:
+            raise
         except Exception as e:
-            self.logger.error(f"Error extracting relations: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to extract relations: {str(e)}",
-                error_code="RELATION_EXTRACTION_FAILED"
-            )
-    
-    async def get_entity(self, entity_id: str) -> APIResponse[Entity]:
-        """获取实体"""
-        try:
-            entity = await self._get_entity_by_id(entity_id)
-            if not entity:
-                return ErrorResponse(
-                    message="Entity not found",
-                    error_code="NOT_FOUND"
-                )
-            
-            return APIResponse(
-                status="success",
-                message="Entity retrieved successfully",
-                data=entity
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error getting entity {entity_id}: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to get entity: {str(e)}",
-                error_code="GET_FAILED"
-            )
+            self.logger.error(f"关系提取过程中发生错误: {str(e)}")
+            raise ServiceError(f"关系提取失败: {str(e)}", "RELATION_EXTRACTION_FAILED")
     
     async def search_entities(
         self,
@@ -227,39 +272,56 @@ class KnowledgeService:
         entity_type: Optional[EntityType] = None,
         limit: int = 20,
         similarity_threshold: float = 0.7
-    ) -> APIResponse[List[Entity]]:
-        """搜索实体"""
+    ) -> List[Entity]:
+        """搜索实体
+        
+        Args:
+            query: 搜索查询
+            entity_type: 实体类型过滤
+            limit: 返回结果数量限制
+            similarity_threshold: 相似度阈值
+            
+        Returns:
+            匹配的实体列表
+        """
+        if not query or not query.strip():
+            raise ValidationError("搜索查询不能为空", "query", query)
+        
+        if limit <= 0 or limit > 100:
+            raise ValidationError("结果数量限制必须在1-100之间", "limit", limit)
+        
         try:
-            # 向量搜索
-            vector_results = await self.vector_service.search_entities(
-                query=query,
-                limit=limit * 2,  # 获取更多结果用于过滤
-                threshold=similarity_threshold
-            )
+            # 首先尝试精确匹配
+            exact_matches = await self._exact_search_entities(query, entity_type, limit)
             
-            if not vector_results.is_success():
-                # 如果向量搜索失败，使用文本搜索
-                return await self._text_search_entities(query, entity_type, limit)
+            if len(exact_matches) >= limit:
+                return exact_matches[:limit]
             
-            # 过滤结果
-            entities = []
-            for result in vector_results.data[:limit]:
-                entity = await self._get_entity_by_id(result["entity_id"])
-                if entity and (not entity_type or entity.entity_type == entity_type):
-                    entities.append(entity)
-            
-            return APIResponse(
-                status="success",
-                message=f"Found {len(entities)} entities",
-                data=entities
-            )
-            
+            # 如果精确匹配结果不足，使用向量搜索
+            if self.vector_service:
+                vector_matches = await self._vector_search_entities(
+                    query, entity_type, limit - len(exact_matches), similarity_threshold
+                )
+                
+                # 合并结果并去重
+                all_matches = exact_matches + vector_matches
+                seen_ids = set()
+                unique_matches = []
+                
+                for entity in all_matches:
+                    if entity.id not in seen_ids:
+                        unique_matches.append(entity)
+                        seen_ids.add(entity.id)
+                
+                return unique_matches[:limit]
+            else:
+                return exact_matches
+                
+        except ServiceError:
+            raise
         except Exception as e:
-            self.logger.error(f"Error searching entities: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to search entities: {str(e)}",
-                error_code="SEARCH_FAILED"
-            )
+            self.logger.error(f"实体搜索过程中发生错误: {str(e)}")
+            raise ServiceError(f"实体搜索失败: {str(e)}", "ENTITY_SEARCH_FAILED")
     
     async def get_entity_relations(
         self,
@@ -267,608 +329,377 @@ class KnowledgeService:
         relation_type: Optional[RelationType] = None,
         direction: str = "both",  # "incoming", "outgoing", "both"
         limit: int = 50
-    ) -> APIResponse[List[Relation]]:
-        """获取实体的关系"""
+    ) -> List[Relation]:
+        """获取实体的关系
+        
+        Args:
+            entity_id: 实体ID
+            relation_type: 关系类型过滤
+            direction: 关系方向
+            limit: 返回结果数量限制
+            
+        Returns:
+            相关的关系列表
+        """
+        if not entity_id:
+            raise ValidationError("实体ID不能为空", "entity_id", entity_id)
+        
+        if direction not in ["incoming", "outgoing", "both"]:
+            raise ValidationError("关系方向必须是 incoming、outgoing 或 both", "direction", direction)
+        
+        if limit <= 0 or limit > 200:
+            raise ValidationError("结果数量限制必须在1-200之间", "limit", limit)
+        
+        # 检查实体是否存在
+        entity = await self._get_entity_by_id(entity_id)
+        if not entity:
+            raise NotFoundError("Entity", entity_id)
+        
         try:
-            relations = await self._get_entity_relations(
+            relations = await self._query_entity_relations(
                 entity_id, relation_type, direction, limit
             )
             
-            return APIResponse(
-                status="success",
-                message=f"Found {len(relations)} relations",
-                data=relations
-            )
+            self.logger.debug(f"获取实体关系成功", extra={
+                "entity_id": entity_id,
+                "relation_count": len(relations),
+                "direction": direction
+            })
             
+            return relations
+            
+        except ServiceError:
+            raise
         except Exception as e:
-            self.logger.error(f"Error getting entity relations: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to get entity relations: {str(e)}",
-                error_code="GET_RELATIONS_FAILED"
-            )
+            self.logger.error(f"获取实体关系过程中发生错误: {str(e)}")
+            raise ServiceError(f"获取实体关系失败: {str(e)}", "GET_ENTITY_RELATIONS_FAILED")
     
-    async def get_knowledge_subgraph(
-        self,
-        entity_ids: List[str],
-        max_depth: int = 2,
-        max_nodes: int = 100,
-        relation_types: Optional[List[RelationType]] = None
-    ) -> APIResponse[KnowledgeGraph]:
-        """获取知识子图"""
-        try:
-            # 限制参数
-            max_depth = min(max_depth, KNOWLEDGE_GRAPH_MAX_DEPTH)
-            max_nodes = min(max_nodes, KNOWLEDGE_GRAPH_MAX_NODES)
-            
-            # 构建子图
-            entities = {}
-            relations = []
-            visited_entities = set()
-            current_level_entities = set(entity_ids)
-            
-            for depth in range(max_depth + 1):
-                if not current_level_entities or len(entities) >= max_nodes:
-                    break
-                
-                next_level_entities = set()
-                
-                for entity_id in current_level_entities:
-                    if entity_id in visited_entities:
-                        continue
-                    
-                    # 获取实体
-                    entity = await self._get_entity_by_id(entity_id)
-                    if entity:
-                        entities[entity_id] = entity
-                        visited_entities.add(entity_id)
-                    
-                    # 获取关系
-                    entity_relations = await self._get_entity_relations(
-                        entity_id, None, "both", 50
-                    )
-                    
-                    for relation in entity_relations:
-                        if relation_types and relation.relation_type not in relation_types:
-                            continue
-                        
-                        relations.append(relation)
-                        
-                        # 添加相关实体到下一层
-                        if relation.source_entity_id != entity_id:
-                            next_level_entities.add(relation.source_entity_id)
-                        if relation.target_entity_id != entity_id:
-                            next_level_entities.add(relation.target_entity_id)
-                
-                current_level_entities = next_level_entities - visited_entities
-            
-            # 创建知识图谱对象
-            knowledge_graph = KnowledgeGraph(
-                id=str(uuid4()),
-                name=f"Subgraph_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                description=f"Knowledge subgraph with {len(entities)} entities and {len(relations)} relations",
-                entities=list(entities.values()),
-                relations=relations,
-                metadata={
-                    "max_depth": max_depth,
-                    "max_nodes": max_nodes,
-                    "actual_depth": depth,
-                    "seed_entities": entity_ids,
-                    "generation_timestamp": datetime.now().isoformat()
-                }
-            )
-            
-            return APIResponse(
-                status="success",
-                message="Knowledge subgraph generated successfully",
-                data=knowledge_graph
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error generating knowledge subgraph: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to generate knowledge subgraph: {str(e)}",
-                error_code="SUBGRAPH_GENERATION_FAILED"
-            )
+    # 私有辅助方法
+    def _validate_entity_data(self, entity_data: Dict[str, Any]) -> None:
+        """验证实体数据"""
+        if not entity_data.get("name"):
+            raise ValidationError("实体名称不能为空", "name")
+        
+        if len(entity_data["name"]) > 200:
+            raise ValidationError("实体名称长度不能超过200字符", "name")
+        
+        entity_type = entity_data.get("type")
+        if entity_type and entity_type not in [e.value for e in EntityType]:
+            raise ValidationError(f"无效的实体类型: {entity_type}", "type")
     
-    async def query_knowledge_graph(
-        self,
-        query: KnowledgeGraphQuery
-    ) -> APIResponse[SearchResult]:
-        """查询知识图谱"""
-        try:
-            if query.query_type == QueryType.ENTITY_SEARCH:
-                return await self._handle_entity_search_query(query)
-            elif query.query_type == QueryType.RELATION_SEARCH:
-                return await self._handle_relation_search_query(query)
-            elif query.query_type == QueryType.PATH_SEARCH:
-                return await self._handle_path_search_query(query)
-            elif query.query_type == QueryType.SUBGRAPH_SEARCH:
-                return await self._handle_subgraph_search_query(query)
-            else:
-                return ErrorResponse(
-                    message="Unsupported query type",
-                    error_code="UNSUPPORTED_QUERY_TYPE"
-                )
-                
-        except Exception as e:
-            self.logger.error(f"Error querying knowledge graph: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to query knowledge graph: {str(e)}",
-                error_code="QUERY_FAILED"
-            )
-    
-    async def merge_entities(
-        self,
-        primary_entity_id: str,
-        secondary_entity_id: str,
-        user_id: str
-    ) -> APIResponse[Entity]:
-        """合并实体"""
-        try:
-            # 获取两个实体
-            primary_entity = await self._get_entity_by_id(primary_entity_id)
-            secondary_entity = await self._get_entity_by_id(secondary_entity_id)
-            
-            if not primary_entity or not secondary_entity:
-                return ErrorResponse(
-                    message="One or both entities not found",
-                    error_code="NOT_FOUND"
-                )
-            
-            # 合并实体属性
-            merged_properties = {**secondary_entity.properties, **primary_entity.properties}
-            merged_aliases = list(set((primary_entity.aliases or []) + (secondary_entity.aliases or [])))
-            
-            # 更新主实体
-            primary_entity.properties = merged_properties
-            primary_entity.aliases = merged_aliases
-            primary_entity.confidence = max(primary_entity.confidence, secondary_entity.confidence)
-            primary_entity.updated_by = user_id
-            primary_entity.mark_updated()
-            
-            # 获取次要实体的所有关系
-            secondary_relations = await self._get_entity_relations(secondary_entity_id)
-            
-            # 将次要实体的关系转移到主实体
-            for relation in secondary_relations:
-                if relation.source_entity_id == secondary_entity_id:
-                    relation.source_entity_id = primary_entity_id
-                elif relation.target_entity_id == secondary_entity_id:
-                    relation.target_entity_id = primary_entity_id
-                
-                relation.updated_by = user_id
-                relation.mark_updated()
-                await self._update_relation(relation)
-            
-            # 软删除次要实体
-            await self._soft_delete_entity(secondary_entity_id)
-            
-            # 更新主实体
-            await self._update_entity(primary_entity)
-            
-            self.logger.info(f"Merged entity {secondary_entity_id} into {primary_entity_id}")
-            return APIResponse(
-                status="success",
-                message="Entities merged successfully",
-                data=primary_entity
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error merging entities: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to merge entities: {str(e)}",
-                error_code="MERGE_FAILED"
-            )
-    
-    async def get_entity_statistics(self) -> APIResponse[Dict[str, Any]]:
-        """获取实体统计信息"""
-        try:
-            # 从缓存获取
-            cached_stats = await self.redis.get("entity_statistics")
-            if cached_stats:
-                return APIResponse(
-                    status="success",
-                    message="Entity statistics retrieved from cache",
-                    data=eval(cached_stats)
-                )
-            
-            # 计算统计信息
-            stats = await self._calculate_entity_statistics()
-            
-            # 缓存结果（5分钟）
-            await self.redis.set("entity_statistics", str(stats), expire=300)
-            
-            return APIResponse(
-                status="success",
-                message="Entity statistics calculated successfully",
-                data=stats
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error getting entity statistics: {str(e)}")
-            return ErrorResponse(
-                message=f"Failed to get entity statistics: {str(e)}",
-                error_code="STATS_FAILED"
-            )
-    
-    # 私有方法
+    def _validate_relation_data(self, relation_data: Dict[str, Any], entity_mapping: Dict[str, str]) -> None:
+        """验证关系数据"""
+        source = relation_data.get("source")
+        target = relation_data.get("target")
+        
+        if not source or not target:
+            raise ValidationError("关系的源实体和目标实体不能为空")
+        
+        if source not in entity_mapping:
+            raise ValidationError(f"源实体未找到: {source}", "source")
+        
+        if target not in entity_mapping:
+            raise ValidationError(f"目标实体未找到: {target}", "target")
+        
+        if source == target:
+            raise ValidationError("关系的源实体和目标实体不能相同")
     
     def _build_entity_extraction_prompt(self, text: str) -> str:
-        """构建实体提取提示"""
+        """构建实体提取提示词"""
         return f"""
-请从以下文本中提取实体，并以JSON格式返回。每个实体应包含以下字段：
-- name: 实体名称
-- type: 实体类型（PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, PRODUCT, OTHER之一）
-- description: 实体描述（可选）
-- properties: 实体属性（可选，键值对格式）
-- confidence: 置信度（HIGH, MEDIUM, LOW之一）
+请从以下文本中提取所有重要的实体，包括人名、地名、组织名、概念等。
 
-文本内容：
+文本：
 {text}
 
-请返回JSON格式的实体列表：
-```json
+请以JSON格式返回结果，格式如下：
 [
-  {{
-    "name": "实体名称",
-    "type": "PERSON",
-    "description": "实体描述",
-    "properties": {{}},
-    "confidence": "HIGH"
-  }}
+    {{
+        "name": "实体名称",
+        "type": "实体类型（PERSON/ORGANIZATION/LOCATION/CONCEPT等）",
+        "description": "简短描述",
+        "confidence": "置信度（HIGH/MEDIUM/LOW）",
+        "properties": {{}}
+    }}
 ]
-```
+
+注意：
+1. 只提取真正重要和有意义的实体
+2. 避免提取过于常见或无意义的词汇
+3. 确保实体名称准确且完整
+4. 为每个实体选择最合适的类型
 """
     
     def _build_relation_extraction_prompt(self, text: str, entities: List[Entity]) -> str:
-        """构建关系提取提示"""
+        """构建关系提取提示词"""
         entity_names = [entity.name for entity in entities]
         
         return f"""
-请从以下文本中提取实体之间的关系，并以JSON格式返回。
+请从以下文本中提取实体之间的关系。
 
-已识别的实体：{', '.join(entity_names)}
-
-文本内容：
+文本：
 {text}
 
-每个关系应包含以下字段：
-- source: 源实体名称
-- target: 目标实体名称
-- type: 关系类型（RELATED_TO, IS_A, PART_OF, LOCATED_IN, WORKS_FOR, CREATED_BY, CONTAINS, SIMILAR_TO, OPPOSITE_TO, CAUSED_BY, LEADS_TO, DEPENDS_ON, COLLABORATES_WITH, COMPETES_WITH, OWNS, MANAGES, TEACHES, LEARNS_FROM, INFLUENCES, SUPPORTS, OPPOSES, PRECEDES, FOLLOWS, INCLUDES, EXCLUDES, IMPLEMENTS, USES, PRODUCES, CONSUMES, REPLACES, EXTENDS, INHERITS_FROM, ASSOCIATED_WITH, MENTIONED_WITH, CO_OCCURS_WITH, OTHER之一）
-- description: 关系描述（可选）
-- properties: 关系属性（可选）
-- confidence: 置信度（HIGH, MEDIUM, LOW之一）
+已识别的实体：
+{', '.join(entity_names)}
 
-请返回JSON格式的关系列表：
-```json
+请以JSON格式返回结果，格式如下：
 [
-  {{
-    "source": "源实体名称",
-    "target": "目标实体名称",
-    "type": "RELATED_TO",
-    "description": "关系描述",
-    "properties": {{}},
-    "confidence": "HIGH"
-  }}
+    {{
+        "source": "源实体名称",
+        "target": "目标实体名称",
+        "type": "关系类型",
+        "description": "关系描述",
+        "confidence": "置信度（HIGH/MEDIUM/LOW）",
+        "properties": {{}}
+    }}
 ]
-```
+
+注意：
+1. 只在已识别的实体之间建立关系
+2. 确保关系在文本中有明确的依据
+3. 选择合适的关系类型
+4. 避免创建过于冗余或不准确的关系
 """
     
     def _parse_entity_extraction_response(self, response: str) -> List[Dict[str, Any]]:
         """解析实体提取响应"""
         try:
-            # 简化实现，实际应该更robust地解析JSON
-            import json
-            import re
-            
-            # 提取JSON部分
-            json_match = re.search(r'```json\s*([\s\S]*?)\s*```', response)
-            if json_match:
-                json_str = json_match.group(1)
-                return json.loads(json_str)
-            
-            # 如果没有找到代码块，尝试直接解析
+            # 尝试直接解析JSON
             return json.loads(response)
+        except json.JSONDecodeError:
+            try:
+                # 如果失败，尝试提取JSON部分
+                start = response.find('[')
+                end = response.rfind(']') + 1
+                if start >= 0 and end > start:
+                    json_part = response[start:end]
+                    return json.loads(json_part)
+            except:
+                pass
             
-        except Exception as e:
-            self.logger.warning(f"Failed to parse entity extraction response: {str(e)}")
+            self.logger.error(f"无法解析实体提取响应: {response}")
             return []
     
     def _parse_relation_extraction_response(self, response: str) -> List[Dict[str, Any]]:
         """解析关系提取响应"""
         try:
-            import json
-            import re
-            
-            # 提取JSON部分
-            json_match = re.search(r'```json\s*([\s\S]*?)\s*```', response)
-            if json_match:
-                json_str = json_match.group(1)
-                return json.loads(json_str)
-            
-            # 如果没有找到代码块，尝试直接解析
+            # 尝试直接解析JSON
             return json.loads(response)
+        except json.JSONDecodeError:
+            try:
+                # 如果失败，尝试提取JSON部分
+                start = response.find('[')
+                end = response.rfind(']') + 1
+                if start >= 0 and end > start:
+                    json_part = response[start:end]
+                    return json.loads(json_part)
+            except:
+                pass
             
-        except Exception as e:
-            self.logger.warning(f"Failed to parse relation extraction response: {str(e)}")
+            self.logger.error(f"无法解析关系提取响应: {response}")
             return []
     
-    async def _save_entity(self, entity: Entity) -> None:
-        """保存实体"""
-        # 保存到StarRocks
-        await self.starrocks.insert_entity(entity.dict())
+    async def _batch_save_entities(self, entities: List[Entity]) -> None:
+        """批量保存实体"""
+        try:
+            # 保存到关系数据库
+            for entity in entities:
+                await self.entity_repo.create(**entity.dict())
+            
+            # 保存到Neo4j
+            if self.neo4j:
+                await self._save_entities_to_neo4j(entities)
+                
+        except Exception as e:
+            self.logger.error(f"批量保存实体失败: {str(e)}")
+            raise ServiceError(f"保存实体失败: {str(e)}", "SAVE_ENTITIES_FAILED")
+    
+    async def _batch_save_relations(self, relations: List[Relation]) -> None:
+        """批量保存关系"""
+        try:
+            # 保存到关系数据库
+            for relation in relations:
+                await self.relation_repo.create(**relation.dict())
+            
+            # 保存到Neo4j
+            if self.neo4j:
+                await self._save_relations_to_neo4j(relations)
+                
+        except Exception as e:
+            self.logger.error(f"批量保存关系失败: {str(e)}")
+            raise ServiceError(f"保存关系失败: {str(e)}", "SAVE_RELATIONS_FAILED")
+    
+    async def _save_entities_to_neo4j(self, entities: List[Entity]) -> None:
+        """将实体保存到Neo4j"""
+        try:
+            for entity in entities:
+                cypher = """
+                MERGE (e:Entity {id: $id})
+                SET e.name = $name,
+                    e.type = $type,
+                    e.description = $description,
+                    e.confidence = $confidence,
+                    e.created_at = datetime(),
+                    e.properties = $properties
+                """
+                await self.neo4j.run(cypher, {
+                    "id": entity.id,
+                    "name": entity.name,
+                    "type": entity.entity_type.value,
+                    "description": entity.description,
+                    "confidence": entity.confidence.value,
+                    "properties": entity.properties
+                })
+        except Exception as e:
+            self.logger.error(f"保存实体到Neo4j失败: {str(e)}")
+            raise
+    
+    async def _save_relations_to_neo4j(self, relations: List[Relation]) -> None:
+        """将关系保存到Neo4j"""
+        try:
+            for relation in relations:
+                cypher = """
+                MATCH (source:Entity {id: $source_id})
+                MATCH (target:Entity {id: $target_id})
+                MERGE (source)-[r:RELATION {id: $id}]->(target)
+                SET r.type = $type,
+                    r.description = $description,
+                    r.confidence = $confidence,
+                    r.created_at = datetime(),
+                    r.properties = $properties
+                """
+                await self.neo4j.run(cypher, {
+                    "id": relation.id,
+                    "source_id": relation.source_entity_id,
+                    "target_id": relation.target_entity_id,
+                    "type": relation.relation_type.value,
+                    "description": relation.description,
+                    "confidence": relation.confidence.value,
+                    "properties": relation.properties
+                })
+        except Exception as e:
+            self.logger.error(f"保存关系到Neo4j失败: {str(e)}")
+            raise
+    
+    async def _exact_search_entities(
+        self, 
+        query: str, 
+        entity_type: Optional[EntityType], 
+        limit: int
+    ) -> List[Entity]:
+        """精确搜索实体"""
+        filters = {}
+        if entity_type:
+            filters["entity_type"] = entity_type.value
         
-        # 保存到Neo4j
-        await self.neo4j.create_entity(
-            "Entity",
-            entity.id,
-            entity.dict()
-        )
-        
-        # 缓存到Redis
-        await self.redis.set(
-            f"entity:{entity.id}",
-            entity.json(),
-            expire=3600
+        # 使用仓库进行搜索
+        return await self.entity_repo.search(
+            search_fields=["name", "description"],
+            search_term=query,
+            limit=limit,
+            **filters
         )
     
-    async def _save_relation(self, relation: Relation) -> None:
-        """保存关系"""
-        # 保存到StarRocks
-        await self.starrocks.insert_relation(relation.dict())
+    async def _vector_search_entities(
+        self,
+        query: str,
+        entity_type: Optional[EntityType],
+        limit: int,
+        threshold: float
+    ) -> List[Entity]:
+        """向量搜索实体"""
+        if not self.vector_service:
+            return []
         
-        # 保存到Neo4j
-        await self.neo4j.create_relationship(
-            "Entity", relation.source_entity_id,
-            "Entity", relation.target_entity_id,
-            relation.relation_type.value,
-            relation.dict()
-        )
+        try:
+            # 使用向量服务进行相似性搜索
+            similar_entities = await self.vector_service.search_similar_entities(
+                query, limit, threshold
+            )
+            
+            # 如果需要，按实体类型过滤
+            if entity_type:
+                similar_entities = [
+                    entity for entity in similar_entities
+                    if entity.entity_type == entity_type
+                ]
+            
+            return similar_entities
+            
+        except Exception as e:
+            self.logger.warning(f"向量搜索失败，跳过: {str(e)}")
+            return []
     
     async def _get_entity_by_id(self, entity_id: str) -> Optional[Entity]:
         """根据ID获取实体"""
-        # 先从Redis缓存获取
-        cached_entity = await self.redis.get(f"entity:{entity_id}")
-        if cached_entity:
-            return Entity.parse_raw(cached_entity)
-        
-        # 使用仓库查询
-        entity_model = await self.entity_repo.get_by_id(entity_id)
-        
-        if entity_model:
-            # 转换为Entity对象
-            entity = Entity(
-                id=entity_model.id,
-                name=entity_model.name,
-                entity_type=EntityType(entity_model.entity_type),
-                description=entity_model.description,
-                properties=entity_model.properties or {},
-                confidence=ConfidenceLevel(entity_model.confidence),
-                source_document_id=entity_model.source_document_id,
-                source_chunk_id=entity_model.source_chunk_id,
-                extracted_by=entity_model.extracted_by,
-                metadata=entity_model.metadata or {}
-            )
-            
-            # 缓存到Redis
-            await self.redis.set(
-                f"entity:{entity_id}",
-                entity.json(),
-                expire=3600
-            )
-            return entity
-        
-        return None
+        return await self.entity_repo.get_by_id(entity_id)
     
-    async def _text_search_entities(
-        self,
-        query: str,
-        entity_type: Optional[EntityType] = None,
-        limit: int = 20
-    ) -> APIResponse[List[Entity]]:
-        """文本搜索实体"""
-        # 使用仓库搜索
-        entity_models = await self.entity_repo.search(
-            query=query,
-            entity_type=entity_type.value if entity_type else None,
-            limit=limit
-        )
-        
-        # 转换为Entity对象
-        entities = []
-        for entity_model in entity_models:
-            entity = Entity(
-                id=entity_model.id,
-                name=entity_model.name,
-                entity_type=EntityType(entity_model.entity_type),
-                description=entity_model.description,
-                properties=entity_model.properties or {},
-                confidence=ConfidenceLevel(entity_model.confidence),
-                source_document_id=entity_model.source_document_id,
-                source_chunk_id=entity_model.source_chunk_id,
-                extracted_by=entity_model.extracted_by,
-                metadata=entity_model.metadata or {}
-            )
-            entities.append(entity)
-        
-        return APIResponse(
-            status="success",
-            message=f"Found {len(entities)} entities",
-            data=entities
-        )
-    
-    async def _get_entity_relations(
+    async def _query_entity_relations(
         self,
         entity_id: str,
-        relation_type: Optional[RelationType] = None,
-        direction: str = "both",
-        limit: int = 50
+        relation_type: Optional[RelationType],
+        direction: str,
+        limit: int
     ) -> List[Relation]:
-        """获取实体关系"""
-        # 使用仓库查询关系
+        """查询实体关系"""
+        filters = {}
+        
+        if relation_type:
+            filters["relation_type"] = relation_type.value
+        
         if direction == "incoming":
-            relation_models = await self.relation_repo.get_by_target_entity(
-                target_entity_id=entity_id,
-                relation_type=relation_type.value if relation_type else None,
-                limit=limit
-            )
+            filters["target_entity_id"] = entity_id
         elif direction == "outgoing":
-            relation_models = await self.relation_repo.get_by_source_entity(
-                source_entity_id=entity_id,
-                relation_type=relation_type.value if relation_type else None,
-                limit=limit
-            )
+            filters["source_entity_id"] = entity_id
         else:  # both
-            relation_models = await self.relation_repo.get_by_entity(
-                entity_id=entity_id,
-                relation_type=relation_type.value if relation_type else None,
-                limit=limit
+            # 需要分别查询并合并结果
+            incoming_relations = await self.relation_repo.get_all(
+                limit=limit//2,
+                target_entity_id=entity_id,
+                **({k: v for k, v in filters.items() if k != "target_entity_id"})
             )
-        
-        # 转换为Relation对象
-        relations = []
-        for relation_model in relation_models:
-            relation = Relation(
-                id=relation_model.id,
-                source_entity_id=relation_model.source_entity_id,
-                target_entity_id=relation_model.target_entity_id,
-                relation_type=RelationType(relation_model.relation_type),
-                description=relation_model.description,
-                properties=relation_model.properties or {},
-                confidence=ConfidenceLevel(relation_model.confidence),
-                source_document_id=relation_model.source_document_id,
-                source_chunk_id=relation_model.source_chunk_id,
-                extracted_by=relation_model.extracted_by,
-                metadata=relation_model.metadata or {}
+            
+            outgoing_relations = await self.relation_repo.get_all(
+                limit=limit//2,
+                source_entity_id=entity_id,
+                **({k: v for k, v in filters.items() if k != "source_entity_id"})
             )
-            relations.append(relation)
+            
+            all_relations = incoming_relations + outgoing_relations
+            return all_relations[:limit]
         
-        return relations
+        return await self.relation_repo.get_all(limit=limit, **filters)
     
-    async def _update_entity(self, entity: Entity) -> None:
-        """更新实体"""
-        # 更新StarRocks
-        await self.starrocks.update_entity(entity.id, entity.dict())
-        
-        # 更新Neo4j
-        await self.neo4j.update_entity("Entity", entity.id, entity.dict())
-        
-        # 删除Redis缓存
-        await self.redis.delete(f"entity:{entity.id}")
-    
-    async def _update_relation(self, relation: Relation) -> None:
-        """更新关系"""
-        # 更新StarRocks
-        await self.starrocks.update_relation(relation.id, relation.dict())
-        
-        # 更新Neo4j关系比较复杂，这里简化处理
-        # 实际应该先删除旧关系，再创建新关系
-    
-    async def _soft_delete_entity(self, entity_id: str) -> None:
-        """软删除实体"""
-        # 使用仓库软删除实体
-        await self.entity_repo.soft_delete(entity_id)
-        
-        # 软删除Neo4j中的实体节点
-        await self.neo4j.update_entity("Entity", entity_id, {"deleted_at": datetime.now().isoformat()})
-        
-        # 删除Redis缓存
-        await self.redis.delete(f"entity:{entity_id}")
-    
-    async def _calculate_entity_statistics(self) -> Dict[str, Any]:
-        """计算实体统计信息"""
-        # 使用仓库获取统计信息
-        entity_stats = await self.entity_repo.get_statistics()
-        relation_stats = await self.relation_repo.get_statistics()
-        
-        stats = {
-            "total_entities": entity_stats.get("total_count", 0),
-            "entities_by_type": entity_stats.get("type_distribution", {}),
-            "entities_by_confidence": entity_stats.get("confidence_distribution", {}),
-            "total_relations": relation_stats.get("total_count", 0),
-            "relations_by_type": relation_stats.get("type_distribution", {})
-        }
-        
-        return stats
-    
-    async def _handle_entity_search_query(self, query: KnowledgeGraphQuery) -> APIResponse[SearchResult]:
-        """处理实体搜索查询"""
-        entities_response = await self.search_entities(
-            query=query.query,
-            entity_type=query.filters.get("entity_type"),
-            limit=query.limit or 20
-        )
-        
-        if not entities_response.is_success():
-            return entities_response
-        
-        search_result = SearchResult(
-            query=query.query,
-            query_type=query.query_type,
-            entities=entities_response.data,
-            relations=[],
-            total_results=len(entities_response.data),
-            execution_time=0.0,  # 应该计算实际执行时间
-            metadata={"search_type": "entity_search"}
-        )
-        
-        return APIResponse(
-            status="success",
-            message="Entity search completed",
-            data=search_result
-        )
-    
-    async def _handle_relation_search_query(self, query: KnowledgeGraphQuery) -> APIResponse[SearchResult]:
-        """处理关系搜索查询"""
-        # 实现关系搜索逻辑
-        # 这里简化实现
-        return APIResponse(
-            status="success",
-            message="Relation search not implemented yet",
-            data=SearchResult(
-                query=query.query,
-                query_type=query.query_type,
-                entities=[],
-                relations=[],
-                total_results=0,
-                execution_time=0.0,
-                metadata={"search_type": "relation_search"}
-            )
-        )
-    
-    async def _handle_path_search_query(self, query: KnowledgeGraphQuery) -> APIResponse[SearchResult]:
-        """处理路径搜索查询"""
-        # 实现路径搜索逻辑
-        # 这里简化实现
-        return APIResponse(
-            status="success",
-            message="Path search not implemented yet",
-            data=SearchResult(
-                query=query.query,
-                query_type=query.query_type,
-                entities=[],
-                relations=[],
-                total_results=0,
-                execution_time=0.0,
-                metadata={"search_type": "path_search"}
-            )
-        )
-    
-    async def _handle_subgraph_search_query(self, query: KnowledgeGraphQuery) -> APIResponse[SearchResult]:
-        """处理子图搜索查询"""
-        # 实现子图搜索逻辑
-        # 这里简化实现
-        return APIResponse(
-            status="success",
-            message="Subgraph search not implemented yet",
-            data=SearchResult(
-                query=query.query,
-                query_type=query.query_type,
-                entities=[],
-                relations=[],
-                total_results=0,
-                execution_time=0.0,
-                metadata={"search_type": "subgraph_search"}
-            )
-        )
+    # 新增的文档处理方法
+    async def process_document_async(self, document_id: str) -> None:
+        """异步处理文档"""
+        try:
+            # 获取文档
+            document = await self.document_repo.get_by_id(document_id)
+            if not document:
+                raise NotFoundError("Document", document_id)
+            
+            # 更新文档状态为处理中
+            await self.document_repo.update(document_id, status="processing")
+            
+            # 这里可以添加OCR、向量化等处理逻辑
+            # TODO: 实现完整的文档处理流程
+            
+            # 模拟处理时间
+            await asyncio.sleep(1)
+            
+            # 更新文档状态为已完成
+            await self.document_repo.update(document_id, status="completed")
+            
+            self.logger.info(f"文档处理完成: {document_id}")
+            
+        except Exception as e:
+            # 更新文档状态为失败
+            try:
+                await self.document_repo.update(document_id, status="failed")
+            except:
+                pass
+            
+            self.logger.error(f"文档处理失败: {document_id} - {str(e)}")
+            raise ServiceError(f"文档处理失败: {str(e)}", "DOCUMENT_PROCESSING_FAILED")

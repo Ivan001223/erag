@@ -12,7 +12,7 @@ from backend.core.ocr.document_processor import DocumentProcessor
 from backend.core.ocr.table_extractor import TableExtractor
 from backend.core.ocr.quality_assurance import QualityAssurance, QualityAssessmentConfig
 from backend.api.ocr import router
-from backend.models.user import User
+from backend.models.user import UserModel as User
 from backend.models.knowledge import Document
 
 class TestOCRService:

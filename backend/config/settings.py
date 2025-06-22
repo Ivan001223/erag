@@ -18,43 +18,43 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, env="APP_PORT")
     
     # 安全配置
-    secret_key: str = Field(..., env="SECRET_KEY")
+    secret_key: str = Field(default="your-secret-key-here", env="SECRET_KEY")
     access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
     
     # Neo4j 配置
-    neo4j_url: str = Field(default="bolt://localhost:7687", env="NEO4J_URL")
+    neo4j_url: str = Field(default="bolt://192.168.0.101:7687", env="NEO4J_URL")
     neo4j_user: str = Field(default="neo4j", env="NEO4J_USER")
-    neo4j_password: str = Field(..., env="NEO4J_PASSWORD")
+    neo4j_password: str = Field(default="password123", env="NEO4J_PASSWORD")
     
     # MySQL 数据库配置
-    mysql_host: str = Field(default="localhost", env="MYSQL_HOST")
+    mysql_host: str = Field(default="192.168.0.101", env="MYSQL_HOST")
     mysql_port: int = Field(default=3306, env="MYSQL_PORT")
-    mysql_user: str = Field(default="erag", env="MYSQL_USER")
-    mysql_password: str = Field(default="erag123", env="MYSQL_PASSWORD")
-    mysql_database: str = Field(default="erag_metadata", env="MYSQL_DATABASE")
+    mysql_user: str = Field(default="erag_user", env="MYSQL_USER")
+    mysql_password: str = Field(default="erag_password", env="MYSQL_PASSWORD")
+    mysql_database: str = Field(default="erag_db", env="MYSQL_DATABASE")
     
     # StarRocks 配置
-    starrocks_host: str = Field(default="localhost", env="STARROCKS_HOST")
+    starrocks_host: str = Field(default="192.168.0.101", env="STARROCKS_HOST")
     starrocks_port: int = Field(default=9030, env="STARROCKS_PORT")
     starrocks_user: str = Field(default="root", env="STARROCKS_USER")
     starrocks_password: str = Field(default="", env="STARROCKS_PASSWORD")
     starrocks_database: str = Field(default="knowledge_base", env="STARROCKS_DATABASE")
     
     # Redis 配置
-    redis_url: str = Field(default="redis://localhost:6379", env="REDIS_URL")
-    redis_password: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    redis_url: str = Field(default="redis://:redis123@192.168.0.101:6379", env="REDIS_URL")
+    redis_password: Optional[str] = Field(default="redis123", env="REDIS_PASSWORD")
     redis_db: int = Field(default=0, env="REDIS_DB")
     
     # MinIO 配置
-    minio_endpoint: str = Field(default="localhost:9000", env="MINIO_ENDPOINT")
+    minio_endpoint: str = Field(default="192.168.0.101:9000", env="MINIO_ENDPOINT")
     minio_access_key: str = Field(default="minioadmin", env="MINIO_ACCESS_KEY")
-    minio_secret_key: str = Field(default="minioadmin", env="MINIO_SECRET_KEY")
+    minio_secret_key: str = Field(default="minioadmin123", env="MINIO_SECRET_KEY")
     minio_bucket_name: str = Field(default="knowledge-base", env="MINIO_BUCKET_NAME")
     minio_secure: bool = Field(default=False, env="MINIO_SECURE")
     
     # LLM 配置
-    llm_api_key: str = Field(..., env="LLM_API_KEY")
+    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
     llm_model: str = Field(default="qwen-max", env="LLM_MODEL")
     llm_base_url: str = Field(
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     
     # Flink 配置
     flink_jobmanager_url: str = Field(
-        default="http://localhost:8081",
+        default="http://192.168.0.101:8081",
         env="FLINK_JOBMANAGER_URL"
     )
     flink_parallelism: int = Field(default=2, env="FLINK_PARALLELISM")

@@ -53,6 +53,9 @@ class ExtractionConfig:
         if self.custom_patterns is None:
             self.custom_patterns = {}
 
+# 为了兼容测试，添加别名
+EntityExtractionConfig = ExtractionConfig
+
 @dataclass
 class ExtractedEntity:
     """提取的实体"""
@@ -83,6 +86,9 @@ class ExtractionResult:
     confidence_distribution: Dict[str, int]
     errors: List[str]
     metadata: Dict[str, Any]
+
+# 为了兼容测试，添加别名
+EntityExtractionResult = ExtractionResult
 
 class EntityExtractor:
     """实体提取器"""

@@ -23,7 +23,7 @@ from backend.core.etl.cdc_manager import CDCManager, CDCSourceConfig, CDCFilter,
 from backend.services.etl_service import ETLService
 from backend.utils.logger import get_logger
 from backend.utils.auth import get_current_user
-from backend.models.user import User
+from backend.models.user import UserModel as User
 
 logger = get_logger(__name__)
 
@@ -92,7 +92,7 @@ class DataTransformationRequest(BaseModel):
 
 class LoadTargetRequest(BaseModel):
     """加载目标请求"""
-    target_type: str  # knowledge_graph, vector_store, database, file_system, api, elasticsearch, redis
+    target_type: str  # knowledge_graph, vector_store, database, file_system, api, starrocks, redis
     connection_config: Dict[str, Any]
     target_config: Dict[str, Any] = Field(default_factory=dict)
     load_strategy: str = "insert"  # insert, update, upsert, merge, replace
@@ -143,7 +143,7 @@ class FlinkJobSubmitRequest(BaseModel):
 class CDCSourceRequest(BaseModel):
     """CDC数据源请求"""
     name: str
-    source_type: str  # mysql, postgresql, mongodb, oracle, sql_server, kafka, file_system, api
+    source_type: str  # mysql, mongodb, oracle, sql_server, kafka, file_system, api
     connection_config: Dict[str, Any]
     tables: List[str] = Field(default_factory=list)
     databases: List[str] = Field(default_factory=list)

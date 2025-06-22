@@ -19,8 +19,11 @@ from enum import Enum
 
 from backend.integrations.dify_client import DifyClient, DifyAPIError
 from backend.core.knowledge_graph.graph_manager import GraphManager
-from backend.core.vector_store.vector_manager import VectorManager
-from backend.models.knowledge import Document
+from backend.core.llm.llm_orchestrator import LLMOrchestrator
+from backend.core.vector.vector_store import VectorStore
+from backend.core.vector.embedder import Embedder
+from backend.services.vector_service import VectorService
+from backend.models.database import DocumentModel
 from backend.models.conversation import Conversation, Message
 from backend.services.cache_service import CacheService
 from backend.utils.logger import get_logger
@@ -85,11 +88,11 @@ class DifyService:
     
     def __init__(self, 
                  graph_manager: GraphManager = None,
-                 vector_manager: VectorManager = None,
+                 vector_service: VectorService = None,
                  cache_service: CacheService = None):
         self.client = DifyClient()
         self.graph_manager = graph_manager
-        self.vector_manager = vector_manager
+        self.vector_service = vector_service
         self.cache_service = cache_service
         
         # 配置信息

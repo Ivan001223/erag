@@ -13,7 +13,7 @@
 from .document_service import DocumentService
 from .knowledge_service import KnowledgeService
 from .task_service import TaskService
-from .user_service import UserService
+# from .user_service import UserService  # 临时禁用
 from .search_service import SearchService
 from .cache_service import CacheService
 from .notification_service import NotificationService

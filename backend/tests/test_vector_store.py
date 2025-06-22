@@ -56,11 +56,14 @@ class TestVectorDocument:
     
     def test_vector_document_from_dict(self):
         """测试从字典创建向量文档"""
+        from datetime import datetime
         doc_dict = {
             "id": "doc1",
             "vector": [0.1, 0.2, 0.3, 0.4],
             "text": "测试文档",
-            "metadata": {"category": "test"}
+            "metadata": {"category": "test"},
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
         
         doc = VectorDocument.from_dict(doc_dict)
@@ -331,7 +334,7 @@ class TestMemoryVectorStore:
         await vector_store.initialize()
         await vector_store.insert_batch(sample_documents)
         
-        stats = await vector_store.get_statistics()
+        stats = vector_store.get_statistics()  # 移除await，因为这是同步方法
         
         assert stats["total_documents"] == 3
         assert stats["dimension"] == 4

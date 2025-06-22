@@ -54,7 +54,7 @@ class VectorStoreType(Enum):
     PINECONE = "pinecone"
     QDRANT = "qdrant"
     MILVUS = "milvus"
-    ELASTICSEARCH = "elasticsearch"
+    STARROCKS = "starrocks"
     MEMORY = "memory"
 
 
@@ -712,28 +712,44 @@ class ChromaVectorStore(VectorStore):
 
 
 class MemoryVectorStore(VectorStore):
-    """内存向量存储（用于测试和小规模应用）"""
+    """内存向量存储"""
     
     def __init__(self, config: VectorStoreConfig):
         super().__init__(config)
         self.documents: Dict[str, VectorDocument] = {}
-        self.vectors: List[np.ndarray] = []
+        self.vectors = np.empty((0, config.dimension), dtype=np.float32)  # 使用numpy数组
         self.doc_ids: List[str] = []
+        # 保持向后兼容的别名
+        self.document_ids = self.doc_ids
     
     async def initialize(self):
         """初始化内存存储"""
         logger.info("内存向量存储初始化完成")
     
-    async def insert(self, documents: List[VectorDocument]) -> List[str]:
+    async def insert(self, documents: Union[VectorDocument, List[VectorDocument]]) -> List[str]:
         """插入文档到内存"""
+        # 支持单个文档和文档列表
+        if isinstance(documents, VectorDocument):
+            documents = [documents]
+        
         start_time = time.time()
         
         inserted_ids = []
+        new_vectors = []
+        
         for doc in documents:
             self.documents[doc.id] = doc
-            self.vectors.append(doc.vector)
+            new_vectors.append(doc.vector)
             self.doc_ids.append(doc.id)
             inserted_ids.append(doc.id)
+        
+        # 将新向量添加到vectors数组
+        if new_vectors:
+            new_vectors_array = np.vstack(new_vectors)
+            if self.vectors.size == 0:
+                self.vectors = new_vectors_array
+            else:
+                self.vectors = np.vstack([self.vectors, new_vectors_array])
         
         insertion_time = time.time() - start_time
         self.stats["total_insertions"] += len(documents)
@@ -742,12 +758,20 @@ class MemoryVectorStore(VectorStore):
         logger.info(f"插入 {len(documents)} 个文档到内存 ({insertion_time:.3f}s)")
         return inserted_ids
     
+    async def insert_batch(self, documents: List[VectorDocument]) -> List[str]:
+        """批量插入文档（别名方法）"""
+        return await self.insert(documents)
+    
+    async def get(self, document_id: str) -> Optional[VectorDocument]:
+        """获取文档（别名方法）"""
+        return await self.get_document(document_id)
+    
     async def search(self, query_vector: np.ndarray, k: int = 10, 
                     filters: Optional[Dict[str, Any]] = None) -> SearchResults:
         """在内存中搜索"""
         start_time = time.time()
         
-        if not self.vectors:
+        if not self.vectors.size:
             return SearchResults(
                 results=[],
                 query_vector=query_vector,
@@ -756,7 +780,7 @@ class MemoryVectorStore(VectorStore):
             )
         
         # 计算相似度
-        vectors_matrix = np.vstack(self.vectors)
+        vectors_matrix = self.vectors
         
         if self.config.distance_metric == DistanceMetric.COSINE:
             # 余弦相似度
@@ -776,7 +800,7 @@ class MemoryVectorStore(VectorStore):
         
         results = []
         for rank, idx in enumerate(top_indices):
-            doc_id = self.doc_ids[idx]
+            doc_id = self.document_ids[idx]
             doc = self.documents[doc_id]
             
             # 应用过滤器
@@ -810,19 +834,26 @@ class MemoryVectorStore(VectorStore):
                 return False
         return True
     
-    async def delete(self, document_ids: List[str]) -> int:
+    async def delete(self, document_ids: Union[str, List[str]]) -> Union[bool, int]:
         """删除文档"""
+        # 支持单个ID和ID列表
+        if isinstance(document_ids, str):
+            document_ids = [document_ids]
+            return_single = True
+        else:
+            return_single = False
+        
         deleted_count = 0
         
         for doc_id in document_ids:
             if doc_id in self.documents:
                 # 找到索引
-                idx = self.doc_ids.index(doc_id)
+                idx = self.document_ids.index(doc_id)
                 
                 # 删除
                 del self.documents[doc_id]
-                self.vectors.pop(idx)
-                self.doc_ids.pop(idx)
+                self.vectors = np.delete(self.vectors, idx, axis=0)
+                self.document_ids.pop(idx)
                 
                 deleted_count += 1
         
@@ -830,26 +861,47 @@ class MemoryVectorStore(VectorStore):
         self.stats["total_documents"] = len(self.documents)
         
         logger.info(f"从内存删除 {deleted_count} 个文档")
-        return deleted_count
+        
+        # 根据输入类型返回不同格式
+        if return_single:
+            return deleted_count > 0
+        else:
+            return deleted_count
     
-    async def update(self, documents: List[VectorDocument]) -> int:
+    async def update(self, document_id_or_documents: Union[str, List[VectorDocument]], 
+                    document: Optional[VectorDocument] = None) -> Union[bool, int]:
         """更新文档"""
-        updated_count = 0
-        
-        for doc in documents:
-            if doc.id in self.documents:
-                # 找到索引
-                idx = self.doc_ids.index(doc.id)
-                
-                # 更新
-                doc.updated_at = datetime.now()
-                self.documents[doc.id] = doc
-                self.vectors[idx] = doc.vector
-                
-                updated_count += 1
-        
-        logger.info(f"更新 {updated_count} 个内存文档")
-        return updated_count
+        # 支持两种调用方式
+        if isinstance(document_id_or_documents, str) and document is not None:
+            # 单个文档更新: update(document_id, document)
+            doc_id = document_id_or_documents
+            if doc_id in self.documents:
+                idx = self.document_ids.index(doc_id)
+                document.updated_at = datetime.now()
+                self.documents[doc_id] = document
+                self.vectors[idx] = document.vector
+                logger.info(f"更新 1 个内存文档")
+                return True
+            return False
+        else:
+            # 批量更新: update(documents)
+            documents = document_id_or_documents
+            updated_count = 0
+            
+            for doc in documents:
+                if doc.id in self.documents:
+                    # 找到索引
+                    idx = self.document_ids.index(doc.id)
+                    
+                    # 更新
+                    doc.updated_at = datetime.now()
+                    self.documents[doc.id] = doc
+                    self.vectors[idx] = doc.vector
+                    
+                    updated_count += 1
+            
+            logger.info(f"更新 {updated_count} 个内存文档")
+            return updated_count
     
     async def get_document(self, document_id: str) -> Optional[VectorDocument]:
         """获取文档"""
@@ -862,11 +914,80 @@ class MemoryVectorStore(VectorStore):
     async def clear(self):
         """清空存储"""
         self.documents.clear()
-        self.vectors.clear()
-        self.doc_ids.clear()
+        self.vectors = np.empty((0, self.config.dimension), dtype=np.float32)
+        self.document_ids.clear()
         
         self.stats["total_documents"] = 0
         logger.info("内存存储已清空")
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取统计信息（同步方法）"""
+        return {
+            **self.stats,
+            "total_documents": len(self.documents),
+            "dimension": self.config.dimension,
+            "index_type": "memory",
+            "vector_dimension": self.config.dimension,
+            "memory_usage": self.vectors.nbytes if self.vectors.size > 0 else 0,
+            "memory_usage_mb": (self.vectors.nbytes / (1024 * 1024)) if self.vectors.size > 0 else 0
+        }
+    
+    def _calculate_distance(self, vec1: np.ndarray, vec2: np.ndarray, 
+                           metric: DistanceMetric) -> float:
+        """计算两个向量之间的距离"""
+        if metric == DistanceMetric.COSINE:
+            # 余弦距离 = 1 - 余弦相似度
+            norm1 = np.linalg.norm(vec1)
+            norm2 = np.linalg.norm(vec2)
+            if norm1 == 0 or norm2 == 0:
+                return 1.0
+            cosine_sim = np.dot(vec1, vec2) / (norm1 * norm2)
+            return 1.0 - cosine_sim
+        elif metric == DistanceMetric.EUCLIDEAN:
+            # 欧几里得距离
+            return float(np.linalg.norm(vec1 - vec2))
+        elif metric == DistanceMetric.MANHATTAN:
+            # 曼哈顿距离
+            return float(np.sum(np.abs(vec1 - vec2)))
+        elif metric == DistanceMetric.DOT_PRODUCT:
+            # 点积距离（负点积）
+            return -float(np.dot(vec1, vec2))
+        else:
+            raise ValueError(f"不支持的距离度量: {metric}")
+    
+    def _match_filters(self, doc: VectorDocument, filters: Dict[str, Any]) -> bool:
+        """匹配过滤器（支持复杂查询操作符）"""
+        for key, value in filters.items():
+            if key not in doc.metadata:
+                return False
+            
+            doc_value = doc.metadata[key]
+            
+            if isinstance(value, dict):
+                # 支持复杂查询操作符
+                for op, op_value in value.items():
+                    if op == "$gte" and doc_value < op_value:
+                        return False
+                    elif op == "$lte" and doc_value > op_value:
+                        return False
+                    elif op == "$gt" and doc_value <= op_value:
+                        return False
+                    elif op == "$lt" and doc_value >= op_value:
+                        return False
+                    elif op == "$in" and doc_value not in op_value:
+                        return False
+                    elif op == "$nin" and doc_value in op_value:
+                        return False
+                    elif op == "$ne" and doc_value == op_value:
+                        return False
+                    elif op == "$eq" and doc_value != op_value:
+                        return False
+            else:
+                # 精确匹配
+                if doc_value != value:
+                    return False
+        
+        return True
 
 
 def create_vector_store(config: VectorStoreConfig) -> VectorStore:

@@ -26,7 +26,7 @@ from backend.services.task_service import TaskService
 from backend.services.user_service import UserService
 from backend.services.recommendation_service import RecommendationService
 from backend.models.knowledge import Document, Entity, Relation
-from backend.models.user import User
+from backend.models.user import UserModel as User
 from backend.models.task import Task, TaskStatus
 
 

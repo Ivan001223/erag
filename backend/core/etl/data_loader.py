@@ -29,7 +29,7 @@ class LoadTargetType(str, Enum):
     VECTOR_STORE = "vector_store"  # 向量存储
     DATABASE = "database"  # 数据库
     FILE_SYSTEM = "file_system"  # 文件系统
-    ELASTICSEARCH = "elasticsearch"  # Elasticsearch
+    STARROCKS = "starrocks"  # StarRocks向量数据库
     CACHE = "cache"  # 缓存
     API = "api"  # API接口
     QUEUE = "queue"  # 消息队列

@@ -6,11 +6,13 @@
 from .test_api_integration import *
 from .test_database_integration import *
 from .test_service_integration import *
-from .test_workflow_integration import *
+from .test_end_to_end import *
+from .test_knowledge_graph_integration import *
 
 __all__ = [
     'APIIntegrationTest',
     'DatabaseIntegrationTest', 
     'ServiceIntegrationTest',
-    'WorkflowIntegrationTest'
+    'EndToEndTest',
+    'KnowledgeGraphIntegrationTest'
 ]

@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from enum import Enum
 
-from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, Enum as SQLEnum, ForeignKey
-from sqlalchemy.dialects.mysql import VARCHAR, TEXT
+from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer, Enum as SQLEnum, ForeignKey, Index
+from sqlalchemy.dialects.mysql import VARCHAR, TEXT, CHAR
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.sql import func
 from pydantic import Field, validator, EmailStr
 
 from .base import Base, BaseModel, FullModel
@@ -40,155 +41,25 @@ class AuthProvider(str, Enum):
     MICROSOFT = "microsoft"
 
 
-class User(Base):
-    """用户SQLAlchemy模型"""
-    
-    __tablename__ = "users"
+class UserModel(Base):
+    """用户表模型"""
+
     __allow_unmapped__ = True
+    __tablename__ = 'users'
     
-    username: Mapped[str] = mapped_column(
-        VARCHAR(50),
-        unique=True,
-        nullable=False,
-        index=True,
-        comment="用户名"
+    username: Any = Column(VARCHAR(50), unique=True, nullable=False, comment='用户名')
+    email: Any = Column(VARCHAR(100), unique=True, nullable=False, comment='邮箱')
+    password_hash: Any = Column(VARCHAR(255), nullable=False, comment='密码哈希')
+    full_name: Any = Column(VARCHAR(100), comment='全名')
+    is_active: Any = Column(Boolean, default=True, comment='是否激活')
+    is_superuser: Any = Column(Boolean, default=False, comment='是否超级用户')
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_username', 'username'),
+        Index('idx_email', 'email'),
+        Index('idx_is_active', 'is_active'),
     )
-    
-    email: Mapped[str] = mapped_column(
-        VARCHAR(255),
-        unique=True,
-        nullable=False,
-        index=True,
-        comment="邮箱"
-    )
-    
-    password_hash: Mapped[Optional[str]] = mapped_column(
-        VARCHAR(255),
-        nullable=True,
-        comment="密码哈希"
-    )
-    
-    full_name: Mapped[Optional[str]] = mapped_column(
-        VARCHAR(100),
-        nullable=True,
-        comment="全名"
-    )
-    
-    avatar_url: Mapped[Optional[str]] = mapped_column(
-        VARCHAR(500),
-        nullable=True,
-        comment="头像URL"
-    )
-    
-    phone: Mapped[Optional[str]] = mapped_column(
-        VARCHAR(20),
-        nullable=True,
-        comment="电话号码"
-    )
-    
-    role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole),
-        default=UserRole.USER,
-        nullable=False,
-        comment="用户角色"
-    )
-    
-    status: Mapped[UserStatus] = mapped_column(
-        SQLEnum(UserStatus),
-        default=UserStatus.PENDING,
-        nullable=False,
-        comment="用户状态"
-    )
-    
-    auth_provider: Mapped[AuthProvider] = mapped_column(
-        SQLEnum(AuthProvider),
-        default=AuthProvider.LOCAL,
-        nullable=False,
-        comment="认证提供商"
-    )
-    
-    external_id: Mapped[Optional[str]] = mapped_column(
-        VARCHAR(255),
-        nullable=True,
-        comment="外部ID"
-    )
-    
-    last_login_at: Mapped[Optional[Any]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="最后登录时间"
-    )
-    
-    login_count: Mapped[int] = mapped_column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="登录次数"
-    )
-    
-    failed_login_attempts: Mapped[int] = mapped_column(
-        Integer,
-        default=0,
-        nullable=False,
-        comment="失败登录次数"
-    )
-    
-    locked_until: Mapped[Optional[Any]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="锁定到期时间"
-    )
-    
-    email_verified: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False,
-        comment="邮箱是否验证"
-    )
-    
-    email_verified_at: Mapped[Optional[Any]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="邮箱验证时间"
-    )
-    
-    preferences: Mapped[Optional[str]] = mapped_column(
-        TEXT,
-        nullable=True,
-        comment="用户偏好设置(JSON)"
-    )
-    
-    model_metadata: Mapped[Optional[str]] = mapped_column(
-        TEXT,
-        nullable=True,
-        comment="元数据(JSON)"
-    )
-    
-    def is_active(self) -> bool:
-        """是否激活"""
-        return self.status == UserStatus.ACTIVE
-    
-    def is_locked(self) -> bool:
-        """是否被锁定"""
-        if self.locked_until is None:
-            return False
-        return datetime.now() < self.locked_until
-    
-    def can_login(self) -> bool:
-        """是否可以登录"""
-        return self.is_active() and not self.is_locked()
-    
-    def increment_login_count(self) -> None:
-        """增加登录次数"""
-        self.login_count += 1
-        self.last_login_at = datetime.now()
-        self.failed_login_attempts = 0
-    
-    def increment_failed_login(self) -> None:
-        """增加失败登录次数"""
-        self.failed_login_attempts += 1
-        if self.failed_login_attempts >= 5:
-            self.locked_until = datetime.now() + timedelta(minutes=30)
 
 
 class UserProfile(Base):

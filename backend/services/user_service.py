@@ -16,9 +16,10 @@ from ..config.constants import (
 )
 from ..connectors import RedisClient
 from ..models import (
-    User, UserSession, UserActivity, UserProfile, UserStats, UserPreferences,
+    UserModel, UserSession, UserActivity, UserProfile, UserStats, UserPreferences,
     Permission, APIResponse, PaginatedResponse, ErrorResponse
 )
+from ..models.user import UserModel as User
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from ..utils import get_logger

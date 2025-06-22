@@ -1214,7 +1214,7 @@ class RecommendationService:
         """从数据库构建用户画像"""
         try:
             # 获取用户基本信息
-            from backend.models.user import User
+            from backend.models.user import UserModel as User
             from backend.models.user import UserInteraction as UserInteractionModel
             
             user_info = self.db.query(User).filter(User.id == user_id).first()
@@ -1390,7 +1390,7 @@ class RecommendationService:
             
             # 更新数据库
             try:
-                from backend.models.user import User
+                from backend.models.user import UserModel as User
                 
                 user = self.db.query(User).filter(User.id == profile.user_id).first()
                 if user:

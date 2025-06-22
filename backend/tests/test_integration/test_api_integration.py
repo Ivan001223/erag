@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 from backend.main import app
 from backend.models.knowledge import Document, Entity, Relation
-from backend.models.user import User
+from backend.models.user import UserModel as User
 from backend.models.task import Task, TaskStatus
 
 
