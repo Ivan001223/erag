@@ -168,10 +168,10 @@ class DocumentProcessor:
         page_count = 1
         if file_extension == '.pdf':
             try:
-                doc = fitz.open(stream=file_data, filetype="pdf")
-                page_count = len(doc)
-                doc.close()
-            except:
+                # 使用上下文管理器确保资源正确释放
+                with fitz.open(stream=file_data, filetype="pdf") as doc:
+                    page_count = len(doc)
+            except Exception:
                 page_count = 1
         
         return DocumentMetadata(
@@ -189,58 +189,58 @@ class DocumentProcessor:
         pages_data = []
         
         try:
-            # 使用 PyMuPDF 处理 PDF
-            doc = fitz.open(stream=file_data, filetype="pdf")
-            
-            if len(doc) > self.max_pages:
-                raise ValueError(f"PDF 页数超过限制 ({self.max_pages} 页)")
-            
-            for page_num in range(len(doc)):
-                page = doc[page_num]
+            # 使用 PyMuPDF 处理 PDF - 使用上下文管理器确保资源释放
+            with fitz.open(stream=file_data, filetype="pdf") as doc:
+                if len(doc) > self.max_pages:
+                    raise ValueError(f"PDF 页数超过限制 ({self.max_pages} 页)")
                 
-                # 获取页面信息
-                rect = page.rect
-                page_info = PageInfo(
-                    page_number=page_num + 1,
-                    width=int(rect.width),
-                    height=int(rect.height),
-                    dpi=options.dpi
-                )
-                
-                # 转换为图像
-                mat = fitz.Matrix(options.dpi / 72, options.dpi / 72)
-                pix = page.get_pixmap(matrix=mat)
-                img_data = pix.tobytes("png")
-                
-                # 处理图像
-                processed_image = await self._process_page_image(
-                    img_data, page_info, options
-                )
-                
-                # 提取文本区域（如果需要）
-                if options.extract_text_regions:
-                    text_regions = self._extract_text_regions(page)
-                    page_info.text_regions = text_regions
-                    page_info.has_text = len(text_regions) > 0
-                
-                # 提取图像区域（如果需要）
-                if options.extract_image_regions:
-                    image_regions = self._extract_image_regions(page)
-                    page_info.image_regions = image_regions
-                    page_info.has_images = len(image_regions) > 0
-                
-                # 提取表格区域（如果需要）
-                if options.extract_table_regions:
-                    table_regions = self._extract_table_regions(page)
-                    page_info.table_regions = table_regions
-                    page_info.has_tables = len(table_regions) > 0
-                
-                pages_data.append({
-                    "page_info": page_info.dict(),
-                    "processed_image": processed_image
-                })
-            
-            doc.close()
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    
+                    # 获取页面信息
+                    rect = page.rect
+                    page_info = PageInfo(
+                        page_number=page_num + 1,
+                        width=int(rect.width),
+                        height=int(rect.height),
+                        dpi=options.dpi
+                    )
+                    
+                    # 转换为图像 - 确保pixmap资源释放
+                    mat = fitz.Matrix(options.dpi / 72, options.dpi / 72)
+                    pix = page.get_pixmap(matrix=mat)
+                    try:
+                        img_data = pix.tobytes("png")
+                    finally:
+                        pix = None  # 释放pixmap内存
+                    
+                    # 处理图像
+                    processed_image = await self._process_page_image(
+                        img_data, page_info, options
+                    )
+                    
+                    # 提取文本区域（如果需要）
+                    if options.extract_text_regions:
+                        text_regions = self._extract_text_regions(page)
+                        page_info.text_regions = text_regions
+                        page_info.has_text = len(text_regions) > 0
+                    
+                    # 提取图像区域（如果需要）
+                    if options.extract_image_regions:
+                        image_regions = self._extract_image_regions(page)
+                        page_info.image_regions = image_regions
+                        page_info.has_images = len(image_regions) > 0
+                    
+                    # 提取表格区域（如果需要）
+                    if options.extract_table_regions:
+                        table_regions = self._extract_table_regions(page)
+                        page_info.table_regions = table_regions
+                        page_info.has_tables = len(table_regions) > 0
+                    
+                    pages_data.append({
+                        "page_info": page_info.dict(),
+                        "processed_image": processed_image
+                    })
             
         except Exception as e:
             logger.error(f"PDF 处理失败: {str(e)}")

@@ -177,21 +177,49 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 生产环境CORS配置
-cors_origins = ["*"] if settings.app_debug else [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    # 添加生产环境域名
-]
+# 安全的CORS配置 - 即使在调试模式下也限制域名
+def get_secure_cors_origins(debug_mode: bool = False):
+    """获取安全的CORS配置"""
+    # 生产环境的受信任域名
+    production_origins = [
+        "https://yourdomain.com",
+        "https://www.yourdomain.com", 
+        "https://api.yourdomain.com",
+    ]
+    
+    # 开发环境的域名（仍然限制，不使用通配符）
+    development_origins = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://localhost:5173",  # Vite开发服务器
+    ]
+    
+    if debug_mode:
+        return production_origins + development_origins
+    else:
+        return production_origins
 
-# 添加 CORS 中间件
+cors_origins = get_secure_cors_origins(settings.app_debug)
+
+# 添加安全的 CORS 中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["X-Process-Time", "X-Request-ID"]
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language", 
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRF-Token"
+    ],
+    expose_headers=["X-Process-Time", "X-Request-ID"],
+    max_age=86400,  # 24小时
 )
 
 # 添加受信任主机中间件

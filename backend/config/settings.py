@@ -2,9 +2,10 @@
 
 from functools import lru_cache
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, validator
 from pydantic_settings import BaseSettings
 import os
+import secrets
 
 
 class Settings(BaseSettings):
@@ -17,22 +18,22 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0", env="APP_HOST")
     app_port: int = Field(default=8000, env="APP_PORT")
     
-    # 安全配置
-    secret_key: str = Field(default="your-secret-key-here", env="SECRET_KEY")
+    # 安全配置 - 强制从环境变量读取
+    secret_key: str = Field(env="SECRET_KEY")
     access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
     
-    # Neo4j 配置
-    neo4j_url: str = Field(default="bolt://192.168.0.101:7687", env="NEO4J_URL")
-    neo4j_user: str = Field(default="neo4j", env="NEO4J_USER")
-    neo4j_password: str = Field(default="password123", env="NEO4J_PASSWORD")
+    # Neo4j 配置 - 移除默认密码
+    neo4j_url: str = Field(env="NEO4J_URL")
+    neo4j_user: str = Field(env="NEO4J_USER")
+    neo4j_password: str = Field(env="NEO4J_PASSWORD")
     
-    # MySQL 数据库配置
-    mysql_host: str = Field(default="192.168.0.101", env="MYSQL_HOST")
+    # MySQL 数据库配置 - 移除默认密码
+    mysql_host: str = Field(env="MYSQL_HOST")
     mysql_port: int = Field(default=3306, env="MYSQL_PORT")
-    mysql_user: str = Field(default="erag_user", env="MYSQL_USER")
-    mysql_password: str = Field(default="erag_password", env="MYSQL_PASSWORD")
-    mysql_database: str = Field(default="erag_db", env="MYSQL_DATABASE")
+    mysql_user: str = Field(env="MYSQL_USER")
+    mysql_password: str = Field(env="MYSQL_PASSWORD")
+    mysql_database: str = Field(env="MYSQL_DATABASE")
     
     # StarRocks 配置
     starrocks_host: str = Field(default="192.168.0.101", env="STARROCKS_HOST")
@@ -41,9 +42,9 @@ class Settings(BaseSettings):
     starrocks_password: str = Field(default="", env="STARROCKS_PASSWORD")
     starrocks_database: str = Field(default="knowledge_base", env="STARROCKS_DATABASE")
     
-    # Redis 配置
-    redis_url: str = Field(default="redis://:redis123@192.168.0.101:6379", env="REDIS_URL")
-    redis_password: Optional[str] = Field(default="redis123", env="REDIS_PASSWORD")
+    # Redis 配置 - 移除默认密码
+    redis_url: str = Field(env="REDIS_URL")
+    redis_password: Optional[str] = Field(env="REDIS_PASSWORD")
     redis_db: int = Field(default=0, env="REDIS_DB")
     
     # MinIO 配置
@@ -129,6 +130,28 @@ class Settings(BaseSettings):
     
     # MySQL URL (用于元数据存储)
     mysql_url: Optional[str] = Field(default=None, env="MYSQL_URL")
+    
+    @validator('secret_key')
+    def validate_secret_key(cls, v):
+        """验证密钥强度"""
+        if not v:
+            raise ValueError("SECRET_KEY必须设置")
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY长度至少32个字符")
+        return v
+    
+    @validator('neo4j_password', 'mysql_password')
+    def validate_passwords(cls, v):
+        """验证数据库密码强度"""
+        if not v:
+            raise ValueError("数据库密码不能为空")
+        if len(v) < 12:
+            raise ValueError("数据库密码长度至少12个字符")
+        return v
+    
+    def generate_secure_secret_key(self) -> str:
+        """生成安全的密钥"""
+        return secrets.token_urlsafe(32)
     
     class Config:
         env_file = ".env"

@@ -2,12 +2,14 @@ import asyncio
 from typing import Dict, List, Any, Optional, Union, Tuple
 from datetime import datetime, date
 from decimal import Decimal
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, MetaData, Table, Column, String, Text, Integer, Float, DateTime, Boolean, JSON, Index
 from sqlalchemy.dialects.mysql import VARCHAR, LONGTEXT, BIGINT, DECIMAL
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import select, insert, update, delete, func, text
+from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.utils.logger import get_logger
@@ -288,11 +290,16 @@ class StarRocksClient:
         self.charset = charset
         self.logger = get_logger(__name__)
         
-        # 构建数据库URL
-        self.database_url = (
-            f"mysql+aiomysql://{user}:{password}@{host}:{port}/{database}"
-            f"?charset={charset}"
-        )
+        # 安全地构建数据库URL，防止SQL注入
+        self.database_url = str(URL.create(
+            "mysql+aiomysql",
+            username=quote_plus(user),
+            password=quote_plus(password),
+            host=quote_plus(host),
+            port=port,
+            database=quote_plus(database),
+            query={"charset": charset}
+        ))
         
         # 创建异步引擎
         self.engine = create_async_engine(
@@ -344,11 +351,16 @@ class StarRocksClient:
             async with self.engine.begin() as conn:
                 await conn.execute(text("CREATE DATABASE IF NOT EXISTS knowledge_base"))
             
-            # 更新连接到知识库数据库
-            knowledge_base_url = (
-                f"mysql+aiomysql://{self.user}:{self.password}@{self.host}:{self.port}/knowledge_base"
-                f"?charset={self.charset}"
-            )
+            # 安全地构建知识库数据库URL
+            knowledge_base_url = str(URL.create(
+                "mysql+aiomysql",
+                username=quote_plus(self.user),
+                password=quote_plus(self.password),
+                host=quote_plus(self.host),
+                port=self.port,
+                database="knowledge_base",
+                query={"charset": self.charset}
+            ))
             
             # 创建新的引擎连接到knowledge_base
             self.engine = create_async_engine(
